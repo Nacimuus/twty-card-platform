@@ -8,6 +8,8 @@ import { saveCardStep } from "@/app/actions/save-card-step";
 import { publishCard } from "@/app/actions/publish-card";
 import { AIFieldButton } from "@/components/AIFieldButton";
 import { supabase } from "@/lib/supabase";
+import { useSearchParams } from "next/navigation";
+
 
 export function BuilderStepForm({
   card,
@@ -34,6 +36,9 @@ export function BuilderStepForm({
 }) {
   const next = getNextStep(step);
   const previous = getPreviousStep(step);
+  const searchParams = useSearchParams();
+const isPublished = searchParams.get("published") === "true";
+const publishedSlug = searchParams.get("slug");
   const [aiThemePrompt, setAiThemePrompt] = useState(card?.theme_prompt || "");
 const [aiThemes, setAiThemes] = useState<any[]>(
   card?.generated_ai_themes || []
@@ -92,6 +97,7 @@ async function uploadImage(file: File, folder: "profiles" | "logos") {
   return data.publicUrl;
 }
 
+
 return (
   <div className="relative z-50">
     {step === "identity" && (
@@ -104,6 +110,8 @@ return (
       <p className="mb-8 text-white/60">
         Start with what people will see first.
       </p>
+
+
 
       <div className="grid gap-5">
         <input
@@ -585,14 +593,37 @@ background:
         Review your card and make it live.
       </p>
 
-      <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6">
-        <p className="text-2xl font-black">
-          Your Twty Card is almost ready 🎉
-        </p>
-        <p className="mt-2 text-white/60">
-          Publish your card and start sharing it with your network.
-        </p>
-      </div>
+<div className="rounded-[2rem] border border-white/10 bg-white/10 p-6">
+  <p className="text-2xl font-black">
+    {isPublished ? "Your card is now live 🎉" : "Your Twty Card is almost ready 🎉"}
+  </p>
+
+  <p className="mt-2 text-white/60">
+    {isPublished
+      ? "You can now open your public card or go back to your dashboard."
+      : "Publish your card and start sharing it with your network."}
+  </p>
+
+  {isPublished && publishedSlug && (
+    <div className="mt-6 flex flex-wrap gap-3">
+      <a
+        href={`/u/${publishedSlug}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
+      >
+        Open live card ↗
+      </a>
+
+      <Link
+        href="/dashboard"
+        className="rounded-2xl border border-white/10 bg-white/10 px-6 py-4 text-sm font-black text-white transition hover:bg-white/20"
+      >
+        Back to dashboard
+      </Link>
+    </div>
+  )}
+</div>
     </div>
 
     <div className="mt-10 flex items-center justify-between">
@@ -603,12 +634,14 @@ background:
         Back
       </Link>
 
+  {!isPublished && (
       <button
         type="submit"
         className="rounded-2xl bg-gradient-to-r from-cyan-300 to-yellow-300 px-6 py-4 font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
       >
         Publish card 🎉
       </button>
+       )}
     </div>
   </form>
 )}

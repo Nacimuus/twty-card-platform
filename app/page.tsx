@@ -10,7 +10,7 @@ import {
 
 export default function Home() {
   const { isSignedIn } = useAuth();
-  
+
   return (
     <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#fef3c7,transparent_32%),radial-gradient(circle_at_top_right,#bae6fd,transparent_30%),linear-gradient(135deg,#f8fafc,#ffffff,#fff7ed)] px-6 py-8 text-slate-950">
       <nav className="mx-auto flex w-full max-w-6xl items-center justify-between">
@@ -19,6 +19,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
+          
           {!isSignedIn ? (
             <SignInButton mode="modal"
             forceRedirectUrl="/dashboard"

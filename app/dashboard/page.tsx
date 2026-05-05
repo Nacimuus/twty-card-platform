@@ -4,12 +4,15 @@ import { supabase } from "@/lib/supabase";
 import { DeleteCardButton } from "@/components/DeleteCardButton";
 import { SignOutButton, UserButton } from "@clerk/nextjs";
 import { FloatingAIAssistant } from "@/components/FloatingAIAssistant";
+import { CreateCardButton } from "@/components/CreateCardButton";
 
 
-async function createNewCard() {
+async function createNewCard(formData: FormData) {
+  
   "use server";
 
   const { userId } = await auth();
+  const cardName = formData.get("card_name") as string;
 
   if (!userId) {
     redirect("/");
@@ -22,7 +25,7 @@ async function createNewCard() {
     .insert({
       id: newCardId,
       clerk_user_id: userId,
-      card_name: "Untitled card",
+      card_name: cardName || "Untitled card",
       full_name: "",
       title: "",
       bio: "",
@@ -44,16 +47,16 @@ async function createNewCard() {
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ published?: string }>;
+  searchParams: Promise<{ published?: string; slug?: string }>;
 }) {
   const { userId } = await auth();
-const { published } = await searchParams;
+const { published, slug } = await searchParams;
   if (!userId) {
     redirect("/");
   }
   const { data: cards } = await supabase
   .from("profiles")
-.select("id, card_name, full_name, company, title, bio, email, phone, whatsapp, linkedin, website, slug, updated_at, status")
+.select("id, card_name, full_name, company, title, bio, email, phone, whatsapp, linkedin, website, slug, updated_at, status, profile_image")
   .eq("clerk_user_id", userId)
   .order("created_at", { ascending: false });
 
@@ -86,7 +89,7 @@ if (!latestCard) {
 }
 
   return (
-<main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#facc15_0%,transparent_24%),radial-gradient(circle_at_top_right,#22d3ee_0%,transparent_26%),radial-gradient(circle_at_bottom_left,#818cf8_0%,transparent_28%),linear-gradient(135deg,#020617,#0f172a,#172554)] px-6 py-8 text-white">
+<main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#facc15_0%,transparent_24%),radial-gradient(circle_at_top_right,#22d3ee_0%,transparent_26%),radial-gradient(circle_at_bottom_left,#818cf8_0%,transparent_28%),linear-gradient(135deg,#020617,#0f172a,#172554)] px-4 py-5 text-white sm:px-6 sm:py-8">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         {published === "true" && (
   <div className="rounded-[2.5rem] border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
@@ -99,9 +102,20 @@ if (!latestCard) {
     <p className="mt-2 text-slate-600">
       Congratulations. Your Twty Card is published and ready to share.
     </p>
+
+    {slug && (
+  <a
+    href={`/u/${slug}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="mt-6 inline-flex rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
+  >
+    Open live card in new tab ↗
+  </a>
+)}
   </div>
 )}
-<div className="flex items-center justify-between rounded-[2rem] border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+<div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
   <div className="flex items-center gap-3">
     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-yellow-300 text-xl font-black text-slate-950 shadow-lg">
       ✦
@@ -114,16 +128,16 @@ if (!latestCard) {
   </div>
 
   <div className="flex items-center gap-3">
-    <SignOutButton redirectUrl="/">
-      <button className="rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/20">
-        Log out
-      </button>
-    </SignOutButton>
+<SignOutButton redirectUrl="/">
+  <span className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/20 cursor-pointer">
+    Log out
+  </span>
+</SignOutButton>
 
     <UserButton />
   </div>
 </div>
-        <div className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl sm:rounded-[2.5rem] sm:p-8">
   <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-300/20 blur-3xl" />
   <div className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-yellow-300/20 blur-3xl" />
 
@@ -132,7 +146,7 @@ if (!latestCard) {
       🚀 Your Card Control Center
     </p>
 
-    <h1 className="mt-6 max-w-3xl text-5xl font-black tracking-tight text-white md:text-6xl">
+   <h1 className="mt-6 max-w-3xl text-3xl font-black tracking-tight text-white sm:text-5xl md:text-6xl">
       Build your digital identity like a game.
     </h1>
 
@@ -140,14 +154,9 @@ if (!latestCard) {
       Create beautiful business cards, complete your profile step by step, publish, share, and track engagement from one playful control center.
     </p>
 
-    <form action={createNewCard} className="mt-8">
-  <button
-    type="submit"
-    className="rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-1 hover:scale-[1.02]"
-  >
-    ＋ Create New Card
-  </button>
-</form>
+<div className="mt-8">
+  <CreateCardButton />
+</div>
 
     <div className="mt-8 grid gap-4 md:grid-cols-3">
       <div className="rounded-[1.7rem] border border-white/10 bg-slate-950/60 p-5 shadow-xl">
@@ -173,7 +182,7 @@ if (!latestCard) {
 </div>
 
        {cards && cards.length > 0 ? (
-  <div className="grid gap-4 md:grid-cols-3">
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 {cards.map((card) => {
   const completedFields = [
     card.full_name,
@@ -196,9 +205,24 @@ if (!latestCard) {
       {card.status || "draft"}
     </div>
 
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-2xl font-black shadow-xl backdrop-blur">
-      {card.full_name?.slice(0, 2).toUpperCase() || "TC"}
-    </div>
+<div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/10 text-2xl font-black shadow-xl backdrop-blur">
+  {card.profile_image ? (
+    <img
+      src={card.profile_image}
+      alt={card.full_name || "Profile"}
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    <span>
+      {card.full_name
+        ?.split(" ")
+        .map((word: string) => word[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "TC"}
+    </span>
+  )}
+</div>
 
     <h3 className="mt-5 text-2xl font-black">
       {card.card_name || card.company || card.full_name || "Untitled card"}
@@ -242,7 +266,7 @@ if (!latestCard) {
     : "Elite"}
 </div>
 
-<div className="mt-5 grid grid-cols-2 gap-2">
+<div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
   <a
     href={`/dashboard/cards/${card.id}/builder/identity`}
     className="rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-slate-950 transition hover:scale-[1.02]"

@@ -10,19 +10,20 @@ export async function publishCard(formData: FormData) {
     throw new Error("Missing cardId");
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .update({
       status: "published",
       updated_at: new Date().toISOString(),
     })
     .eq("id", cardId)
-    .select();
+    .select("slug")
+    .single();
 
-  if (error) {
+  if (error || !data) {
     console.error("PUBLISH CARD ERROR:", error);
-    throw new Error(error.message);
+    throw new Error(error?.message || "Could not publish card");
   }
-
-  redirect("/dashboard?published=true");
+console.log("PUBLISH REDIRECT TO REVIEW:", cardId, data.slug);
+  redirect(`/dashboard/cards/${cardId}/builder/review?published=true&slug=${data.slug}`);
 }

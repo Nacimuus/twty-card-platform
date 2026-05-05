@@ -9,69 +9,86 @@ export async function POST(request: Request) {
     const { field, context } = await request.json();
 
     const response = await client.responses.create({
-      model: "gpt-5-nano",
-  input: `
-You are Twty AI, a premium personal branding assistant.
+      model: "gpt-5-mini",
+      input: `
+You are Twty AI.
 
-Generate content for this field:
+Role:
+You write premium business card content for professionals.
+
+Mission:
+Generate content that feels specific, strategic, credible and human.
+
+Professional profile:
+Name: ${context?.full_name || ""}
+Title: ${context?.title || ""}
+Current bio: ${context?.bio || ""}
+Company: ${context?.company || ""}
+Company description: ${context?.company_description || ""}
+Skills: ${
+  Array.isArray(context?.skills)
+    ? context.skills.join(", ")
+    : context?.skills || ""
+}
+Website: ${context?.website || ""}
+
+Target field:
 ${field}
 
-Context:
-${JSON.stringify(context)}
+Global rules:
+- Never generate generic content
+- Avoid clichés
+- Avoid empty motivational wording
+- Use concrete business language
+- Adapt vocabulary to the profession
+- Make the person sound credible and experienced
+- Make each generation different
+- Use the provided context deeply
+- Return only final content
 
-Strict output rules:
-- Return ONLY the generated content
-- No markdown
-- No explanation
-- No intro sentence
+Field rules:
 
-Field-specific rules:
+BIO:
+If field = short professional bio
+- max 25 words
+- first person
+- impactful
+- human
+- clear positioning
+- show expertise + value
 
-1. If field is "short professional bio":
-- Maximum 1 short line
-- Write in first person
-- The person speaks about themselves
-- Clear, human, confident
-- Example style: "I help companies deliver secure payment projects with clarity and impact."
+COMPANY DESCRIPTION:
+If field = company description
+- max 30 words
+- explain what company does
+- explain business value
+- premium positioning
 
-2. If field is "company description":
-- Maximum 1 short lines
-- High-level and concise
-- Explain what the company does and the value it brings
-- Premium but simple wording
+COMPANY SERVICES:
+If field = company services list
+- max 5 services
+- comma separated
+- concrete business services
+- no vague wording
 
-3. If field is "company services list":
-- Return maximum 4 items
-- Each item must be 1 to 2 words maximum
-- Separate items with commas
-- Example: "Consulting, Training, Strategy, Payments, Leadership"
-
-4. If field is "professional skills list":
-- Return maximum 5 skills
-- Each skill must be 1 to 2 words maximum
-- Separate skills with commas
-- Example: "Project Management, Payments, Leadership, Strategy, Negotiation"
-
-Keep the result short, direct and premium.
-No long paragraphs.
-No generic motivational language.
-Return only the final text.
-Maximum:
-- bio: 2 short sentences
-- company description: 2 short sentences
-- skills/services: 5 comma-separated items maximum
+SKILLS:
+If field = professional skills list
+- max 6 skills
+- comma separated
+- highly relevant to the profession
+- strong business/professional relevance
 `,
     });
 
     return Response.json({
-      text: response.output_text,
+      text: response.output_text.trim(),
     });
   } catch (error) {
     console.error(error);
+
     return Response.json(
       { error: "Generation failed" },
       { status: 500 }
     );
-    
   }
 }
