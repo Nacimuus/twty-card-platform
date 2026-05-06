@@ -60,9 +60,7 @@ export function CardBuilderLayout({
       <div className="mx-auto max-w-7xl">
         {/* Mobile */}
         <div className="grid grid-cols-1 gap-6 lg:hidden">
-            <p className="rounded-2xl bg-red-500 p-4 text-white font-black lg:hidden">
-  MOBILE FORM FIRST TEST
-</p>
+
           <section className="rounded-[2rem] border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
             {builderHeader}
             {children}
