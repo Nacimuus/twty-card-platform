@@ -273,7 +273,7 @@ const COPY = {
   },
 } as const;
 
-type T = typeof COPY.fr;
+type T = (typeof COPY)[Lang];
 
 // ============================================================
 // Theme showcase personas
