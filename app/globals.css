@@ -1,93 +1,47 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ════════════════════════════════════════════════════════════
+   Palgonic brand tokens (Tailwind v4 @theme)
+   ════════════════════════════════════════════════════════════ */
+@theme {
+  /* Brand colors */
+  --color-creme: #faf7f2;
+  --color-encre: #1a1a1a;
+  --color-foret: #0e5c4d;
+  --color-foret-deep: #0a4538;
+  --color-corail: #e07856;
+  --color-corail-deep: #c25f40;
+  --color-pierre: #8a8580;
+  --color-pierre-soft: #d9d5ce;
+
+  /* Brand fonts */
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ════════════════════════════════════════════════════════════
+   Base body styling
+   ════════════════════════════════════════════════════════════ */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  background-color: var(--color-creme);
+  color: var(--color-encre);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@keyframes cardEnter {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
-@keyframes shine {
-  0% {
-    transform: translateX(-120%);
-  }
-  45% {
-    transform: translateX(120%);
-  }
-  100% {
-    transform: translateX(120%);
-  }
-}
-
-@keyframes cardFade {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes cardScale {
-  from {
-    opacity: 0;
-    transform: scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes cardReveal {
-  from {
-    opacity: 0;
-    clip-path: inset(0 0 100% 0);
-  }
-  to {
-    opacity: 1;
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes cardCurtain {
-  from {
-    opacity: 0;
-    clip-path: inset(0 50% 0 50%);
-  }
-  to {
-    opacity: 1;
-    clip-path: inset(0 0 0 0);
-  }
+/* ════════════════════════════════════════════════════════════
+   Paper grain — tactile texture for Crème surfaces
+   fractalNoise + 12% opacity = visible but not overwhelming
+   ════════════════════════════════════════════════════════════ */
+.bg-creme-paper {
+  background-color: #faf7f2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }

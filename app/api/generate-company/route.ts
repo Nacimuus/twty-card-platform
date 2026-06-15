@@ -1,33 +1,50 @@
 import OpenAI from "openai";
+import { createClient } from "@/lib/supabase/server";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  // Auth gate
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { companyName, title, bio } = body;
+  try {
+    const { companyName, title, bio } = await request.json();
 
-  const response = await client.responses.create({
-    model: "gpt-5-nano",
-    instructions: `
-You are a premium business copywriter.
-
-Write a short company presentation for a digital business card.
-The text must be professional, clear, elegant and human.
-Maximum 600 characters.
-No markdown.
-No emojis.
-`,
-    input: `
-Company name: ${companyName || "Not provided"}
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a premium business copywriter. Write a short company presentation for a digital business card. Professional, clear, elegant, human. Maximum 600 characters. No markdown, no emojis. Match the language of the input.",
+        },
+        {
+          role: "user",
+          content: `Company name: ${companyName || "Not provided"}
 Person title: ${title || "Not provided"}
-Person bio/context: ${bio || "Not provided"}
-`,
-  });
+Person bio: ${bio || "Not provided"}`,
+        },
+      ],
+      max_tokens: 250,
+      temperature: 0.7,
+    });
 
-  return Response.json({
-    companyDescription: response.output_text,
-  });
+    const companyDescription = (
+      completion.choices[0]?.message?.content || ""
+    ).trim();
+
+    return Response.json({ companyDescription });
+  } catch (error) {
+    console.error("GENERATE-COMPANY ERROR:", error);
+    return Response.json(
+      { error: "Failed to generate company description" },
+      { status: 502 },
+    );
+  }
 }

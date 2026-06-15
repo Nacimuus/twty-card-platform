@@ -11,9 +11,9 @@ function SubmitButton({ cardName }: { cardName: string }) {
     <button
       type="submit"
       disabled={pending || !cardName.trim()}
-      className="w-full rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex-1 rounded-md bg-foret px-6 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {pending ? "Creating your card..." : "Create my card ✨"}
+      {pending ? "Création…" : "Créer ma carte"}
     </button>
   );
 }
@@ -27,40 +27,51 @@ export function CreateCardButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-1 hover:scale-[1.02]"
+        className="inline-flex items-center gap-2 rounded-md bg-foret px-5 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep"
       >
-        ＋ Create New Card
+        <span className="text-base leading-none">+</span>
+        <span>Nouvelle carte</span>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-950 p-8 shadow-2xl">
-            <h2 className="text-2xl font-black text-white">
-              Name your card
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-encre/60 p-6 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-pierre-soft bg-white p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-display text-2xl text-encre">
+              Nommez votre carte
             </h2>
 
-            <p className="mt-2 text-sm text-white/60">
-              Give your card a clear identity before starting.
+            <p className="mt-2 text-sm text-pierre">
+              Donnez un nom clair à votre carte avant de commencer.
             </p>
 
-<form action={createNewCard}>
-  <input type="hidden" name="card_name" value={cardName} />
-
-  <input
-    name="card_name_visible"
-                value={cardName}
-                onChange={(e) => setCardName(e.target.value)}
-                placeholder="Example: Consulting Card"
-                className="mt-6 w-full rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-              />
+            <form action={createNewCard} className="mt-6">
+              <label className="block">
+                <span className="block text-xs font-medium text-pierre">
+                  Nom de la carte
+                </span>
+                <input
+                  name="card_name"
+                  value={cardName}
+                  onChange={(e) => setCardName(e.target.value)}
+                  placeholder="Ex : Carte consulting"
+                  autoFocus
+                  className="mt-2 w-full rounded-md border border-pierre-soft bg-creme px-4 py-3 text-sm outline-none transition placeholder:text-pierre/50 focus:border-foret"
+                />
+              </label>
 
               <div className="mt-6 flex gap-3">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex-1 rounded-2xl border border-white/10 bg-white/10 px-6 py-4 font-black text-white"
+                  className="flex-1 rounded-md border border-pierre-soft px-6 py-2.5 text-sm font-medium text-encre transition hover:border-foret hover:text-foret"
                 >
-                  Cancel
+                  Annuler
                 </button>
 
                 <SubmitButton cardName={cardName} />

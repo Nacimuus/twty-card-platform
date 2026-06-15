@@ -17,73 +17,80 @@ export function CardBuilderLayout({
 
   const builderHeader = (
     <div className="mb-8">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-cyan-100">
-          Step {currentIndex + 1} of {builderSteps.length}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-widest text-pierre">
+          Étape {currentIndex + 1} sur {builderSteps.length}
         </p>
 
         <Link
           href="/dashboard"
-          className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white/70 transition hover:bg-white/20 hover:text-white"
+          className="text-sm text-pierre transition hover:text-foret"
         >
-          Back to dashboard
+          ← Tableau de bord
         </Link>
       </div>
 
-      <div className="h-3 overflow-hidden rounded-full bg-white/10">
+      {/* Progress bar */}
+      <div className="h-1 overflow-hidden rounded-full bg-pierre-soft">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-yellow-300 transition-all"
+          className="h-full rounded-full bg-foret transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {builderSteps.map((step) => (
-          <Link
-            key={step.id}
-            href={`/dashboard/cards/${cardId}/builder/${step.id}`}
-            className={`rounded-full px-4 py-2 text-xs font-black transition ${
-              step.id === currentStep
-                ? "bg-white text-slate-950"
-                : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            {step.label}
-          </Link>
-        ))}
+      {/* Step pills */}
+      <div className="mt-6 flex flex-wrap gap-2">
+        {builderSteps.map((step, i) => {
+          const active = step.id === currentStep;
+          const done = i < currentIndex;
+          return (
+            <Link
+              key={step.id}
+              href={`/dashboard/cards/${cardId}/builder/${step.id}`}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
+                active
+                  ? "bg-foret text-creme"
+                  : done
+                    ? "bg-foret/10 text-foret hover:bg-foret/15"
+                    : "border border-pierre-soft text-pierre hover:border-foret hover:text-foret"
+              }`}
+            >
+              {step.label}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fde68a,transparent_30%),radial-gradient(circle_at_top_right,#67e8f9,transparent_28%),linear-gradient(135deg,#020617,#0f172a,#172554)] px-4 py-5 text-white sm:p-6">
-      <div className="mx-auto max-w-7xl">
-        {/* Mobile */}
+    <main className="min-h-screen bg-creme text-encre">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
+        {/* Mobile: form first, preview below */}
         <div className="grid grid-cols-1 gap-6 lg:hidden">
-
-          <section className="rounded-[2rem] border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+          <section className="rounded-2xl border border-pierre-soft bg-white p-5 shadow-sm">
             {builderHeader}
             {children}
           </section>
 
-          <aside className="h-fit rounded-[2rem] border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-            <p className="mb-4 text-sm font-black text-cyan-100">
-              ✨ Live preview
+          <aside className="h-fit rounded-2xl border border-pierre-soft bg-white p-5 shadow-sm">
+            <p className="mb-4 text-xs uppercase tracking-widest text-pierre">
+              Aperçu en direct
             </p>
             {preview}
           </aside>
         </div>
 
-        {/* Desktop */}
+        {/* Desktop: preview left, form right */}
         <div className="hidden gap-8 lg:grid lg:grid-cols-[420px_1fr]">
-          <aside className="sticky top-6 h-fit rounded-[2rem] border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
-            <p className="mb-4 text-sm font-black text-cyan-100">
-              ✨ Live preview
+          <aside className="sticky top-6 h-fit rounded-2xl border border-pierre-soft bg-white p-5 shadow-sm">
+            <p className="mb-4 text-xs uppercase tracking-widest text-pierre">
+              Aperçu en direct
             </p>
             {preview}
           </aside>
 
-          <section className="rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+          <section className="rounded-2xl border border-pierre-soft bg-white p-8 shadow-sm">
             {builderHeader}
             {children}
           </section>

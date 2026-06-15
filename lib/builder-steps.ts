@@ -1,10 +1,10 @@
 export const builderSteps = [
-  { id: "identity", label: "Identity" },
-  { id: "company", label: "Company" },
-  { id: "skills", label: "Skills" },
+  { id: "identity", label: "Identité" },
+  { id: "company", label: "Entreprise" },
+  { id: "skills", label: "Compétences" },
   { id: "contact", label: "Contact" },
-  { id: "design", label: "Design" },
-  { id: "review", label: "Review" },
+  { id: "design", label: "Style" },
+  { id: "review", label: "Publication" },
 ];
 
 export function getStepIndex(step: string) {

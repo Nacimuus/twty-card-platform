@@ -1,7 +1,7 @@
 import { BuilderLiveClient } from "@/components/BuilderLiveClient";
 import { builderSteps } from "@/lib/builder-steps";
-import { supabase } from "@/lib/supabase";
-import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { notFound, redirect } from "next/navigation";
 import { FloatingAIAssistant } from "@/components/FloatingAIAssistant";
 
 export default async function BuilderPage({
@@ -11,46 +11,46 @@ export default async function BuilderPage({
 }) {
   const { cardId, step } = await params;
 
-  const stepExists = builderSteps.some((item) => item.id === step);
+  if (!builderSteps.some((s) => s.id === step)) notFound();
 
-  if (!stepExists) {
-    notFound();
-  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
   const { data: card, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", cardId)
+    .eq("user_id", user.id)
     .single();
 
-  if (error || !card) {
-    notFound();
-  }
+  if (error || !card) notFound();
 
-const builderSuggestions =
-  step === "identity"
-    ? [
-        "Use your real full name.",
-        "Your title should be clear and searchable.",
-        "Strong first impressions matter.",
-      ]
-    : step === "company"
-    ? [
-        "Explain what your company does clearly.",
-        "Keep it simple and credible.",
-        "Show value fast.",
-      ]
-    : ["Complete this step carefully."];
+  const builderSuggestions =
+    step === "identity"
+      ? [
+          "Utilisez votre vrai nom complet.",
+          "Un titre clair et recherchable.",
+          "La première impression compte.",
+        ]
+      : step === "company"
+        ? [
+            "Expliquez clairement ce que fait votre entreprise.",
+            "Restez simple et crédible.",
+            "Montrez la valeur rapidement.",
+          ]
+        : ["Complétez cette étape avec soin."];
 
   return (
-  <>
-    <BuilderLiveClient card={card} step={step} cardId={cardId} />
-
-    <FloatingAIAssistant
-      suggestions={builderSuggestions}
-      step={step}
-      card={card}
-    />
-  </>
-);
+    <>
+      <BuilderLiveClient card={card} step={step} cardId={cardId} />
+      <FloatingAIAssistant
+        suggestions={builderSuggestions}
+        step={step}
+        card={card}
+      />
+    </>
+  );
 }

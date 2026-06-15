@@ -1,474 +1,492 @@
-import { supabase } from "@/lib/supabase";
-import { ProfileQrCode } from "@/components/ProfileQrCode";
-import { defaultAITheme } from "@/lib/ai-theme-schema";
-import { TrackedActionLink } from "@/components/TrackedActionLink";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
+import { createClient } from "@/lib/supabase/server";
+import { resolveTheme } from "@/lib/themes";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { SaveContactButton } from "@/components/SaveContactButton";
+import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 
-export default async function PublicCardPage({
+type Lang = "fr" | "en";
+
+// ════════════════════════════════════════════════════════════
+// Copy dictionary (FR + EN)
+// ════════════════════════════════════════════════════════════
+const COPY = {
+  fr: {
+    about: "À propos",
+    skills: "Compétences",
+    company: "Entreprise",
+    contact: "Contact",
+    saveContact: "Enregistrer le contact",
+    qrTitle: "Scannez pour enregistrer",
+    qrHint: "Scannez. Restons en contact.",
+    notFoundTitle: "Carte introuvable",
+    notFoundHint: "Cette carte n'existe pas ou n'a pas encore été publiée.",
+    poweredBy: "Propulsé par palgonic",
+    visitWebsite: "Site web",
+    emailLabel: "Email",
+    phoneLabel: "Téléphone",
+    whatsappLabel: "WhatsApp",
+    linkedinLabel: "LinkedIn",
+    websiteLabel: "Site",
+  },
+  en: {
+    about: "About",
+    skills: "Skills",
+    company: "Company",
+    contact: "Contact",
+    saveContact: "Save contact",
+    qrTitle: "Scan to save",
+    qrHint: "Scan. Let's stay in touch.",
+    notFoundTitle: "Card not found",
+    notFoundHint: "This card does not exist or has not been published yet.",
+    poweredBy: "Powered by palgonic",
+    visitWebsite: "Website",
+    emailLabel: "Email",
+    phoneLabel: "Phone",
+    whatsappLabel: "WhatsApp",
+    linkedinLabel: "LinkedIn",
+    websiteLabel: "Website",
+  },
+} as const;
+
+// ════════════════════════════════════════════════════════════
+// Metadata with hreflang for SEO
+// ════════════════════════════════════════════════════════════
+export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ lang?: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const { lang } = await searchParams;
+  const supabase = await createClient();
+  const { data: card } = await supabase
+    .from("profiles")
+    .select("full_name, title, bio, language")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .single();
+
+  if (!card) return { title: "Palgonic" };
+
+  const isEN = (lang || card.language) === "en";
+  const t = COPY[isEN ? "en" : "fr"];
+
+  const title = card.full_name
+    ? `${card.full_name}${card.title ? ` · ${card.title}` : ""}`
+    : "Palgonic";
+  const description = card.bio || t.poweredBy;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: isEN ? `/u/${slug}?lang=en` : `/u/${slug}`,
+      languages: {
+        "fr-FR": `/u/${slug}`,
+        "en-US": `/u/${slug}?lang=en`,
+      },
+    },
+    openGraph: {
+      type: "profile",
+      locale: isEN ? "en_US" : "fr_FR",
+      title,
+      description,
+    },
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// Page
+// ════════════════════════════════════════════════════════════
+export default async function PublicCard({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }) {
   const { slug } = await params;
+  const { lang: langParam } = await searchParams;
 
-  const { data, error } = await supabase
+  const supabase = await createClient();
+  const { data: card, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("slug", slug)
+    .eq("status", "published")
     .single();
 
-  if (error || !data) {
+  // Resolve language: URL param > card default > fr
+  const cardLang = card?.language === "en" ? "en" : "fr";
+  const lang: Lang =
+    langParam === "fr" || langParam === "en" ? langParam : cardLang;
+  const t = COPY[lang];
+
+  // Not-found state
+  if (error || !card) {
     return (
-      <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
-        <p>Profile not found</p>
+      <main className="min-h-screen bg-creme text-encre">
+        <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
+          <h1 className="font-display text-3xl">{t.notFoundTitle}</h1>
+          <p className="mt-3 text-pierre">{t.notFoundHint}</p>
+          <Link
+            href="/"
+            className="mt-8 rounded-md bg-foret px-5 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep"
+          >
+            palgonic
+          </Link>
+        </div>
       </main>
     );
   }
-  await supabase.from("card_analytics").insert({
-  card_id: data.id,
-  event_type: "view",
-});
 
-  const initials = data.full_name
-    ? data.full_name
-        .split(" ")
-        .map((word: string) => word[0])
-        .join("")
-        .slice(0, 2)
-    : "TW";
+  // Resolve theme using new themes.ts (with overlay support)
+  const theme = resolveTheme(card);
 
-    const genericThemes = {
-        luxury: {
-          page: "bg-[radial-gradient(circle_at_top,#facc15_0%,transparent_28%),linear-gradient(135deg,#020617,#111827,#000)] text-white",
-          card: "bg-white/10 border border-yellow-400/30 shadow-[0_0_45px_rgba(250,204,21,0.22)] backdrop-blur-xl",
-          accent: "text-yellow-300",
-          button: "bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-600 text-black shadow-[0_0_25px_rgba(250,204,21,0.45)] hover:scale-105",
-          bubble: "bg-yellow-400/15 border border-yellow-300/30 text-yellow-100",
-          decor: "✨",
-          effect: "before:absolute before:inset-0 before:rounded-[2rem] before:bg-gradient-to-r before:from-transparent before:via-yellow-300/10 before:to-transparent",
-        },
-      
-        tech: {
-          page: "bg-[radial-gradient(circle_at_top_right,#22d3ee_0%,transparent_30%),linear-gradient(135deg,#020617,#082f49,#020617)] text-cyan-50",
-          card: "bg-cyan-950/40 border border-cyan-300/20 shadow-[0_0_45px_rgba(34,211,238,0.25)] backdrop-blur-xl",
-          accent: "text-cyan-300",
-          button: "bg-cyan-300 text-slate-950 shadow-[0_0_25px_rgba(34,211,238,0.5)] hover:bg-cyan-200 hover:scale-105",
-          bubble: "bg-cyan-300/10 border border-cyan-300/30 text-cyan-100",
-          decor: "⌁",
-          effect: "before:absolute before:inset-0 before:rounded-[2rem] before:bg-[linear-gradient(90deg,transparent,rgba(34,211,238,.12),transparent)]",
-        },
-      
-        nature: {
-          page: "bg-[radial-gradient(circle_at_bottom_left,#86efac_0%,transparent_28%),linear-gradient(135deg,#052e16,#14532d,#ecfdf5)] text-emerald-950",
-          card: "bg-white/75 border border-emerald-200 shadow-[0_25px_70px_rgba(22,101,52,0.25)] backdrop-blur-xl",
-          accent: "text-emerald-700",
-          button: "bg-emerald-700 text-white shadow-[0_15px_35px_rgba(21,128,61,0.35)] hover:bg-emerald-600 hover:-translate-y-1",
-          bubble: "bg-emerald-100 border border-emerald-200 text-emerald-900",
-          decor: "🍃",
-          effect: "before:absolute before:-top-10 before:-right-10 before:h-32 before:w-32 before:rounded-full before:bg-emerald-300/30 before:blur-2xl",
-        },
-      
-        creative: {
-          page: "bg-[radial-gradient(circle_at_top_left,#f0abfc_0%,transparent_30%),radial-gradient(circle_at_bottom_right,#fb7185_0%,transparent_28%),linear-gradient(135deg,#fff1f2,#faf5ff,#ffffff)] text-slate-900",
-          card: "bg-white/70 border border-pink-200 shadow-[0_25px_70px_rgba(236,72,153,0.25)] backdrop-blur-xl",
-          accent: "text-fuchsia-600",
-          button: "bg-gradient-to-r from-fuchsia-500 via-pink-500 to-rose-400 text-white shadow-[0_0_28px_rgba(217,70,239,0.35)] hover:rotate-1 hover:scale-105",
-          bubble: "bg-pink-100 border border-pink-200 text-pink-900",
-          decor: "✦",
-          effect: "before:absolute before:inset-0 before:rounded-[2rem] before:bg-[radial-gradient(circle_at_20%_20%,rgba(217,70,239,.16),transparent_25%)]",
-        },
-      
-        minimal: {
-          page: "bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-950",
-          card: "bg-white border border-slate-200 shadow-[0_20px_60px_rgba(15,23,42,0.08)]",
-          accent: "text-slate-900",
-          button: "bg-slate-950 text-white shadow-lg hover:bg-slate-800 hover:-translate-y-1",
-          bubble: "bg-slate-100 border border-slate-200 text-slate-800",
-          decor: "",
-          effect: "before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-slate-200",
-        },
-      
-        royal: {
-          page: "bg-[radial-gradient(circle_at_top,#c084fc_0%,transparent_26%),linear-gradient(135deg,#1e1b4b,#312e81,#020617)] text-white",
-          card: "bg-purple-950/50 border border-purple-300/25 shadow-[0_0_50px_rgba(168,85,247,0.3)] backdrop-blur-xl",
-          accent: "text-purple-200",
-          button: "bg-gradient-to-r from-purple-300 via-fuchsia-400 to-yellow-300 text-slate-950 shadow-[0_0_30px_rgba(192,132,252,0.45)] hover:scale-105",
-          bubble: "bg-purple-300/10 border border-purple-200/30 text-purple-100",
-          decor: "◆",
-          effect: "before:absolute before:-top-8 before:left-1/2 before:h-24 before:w-24 before:-translate-x-1/2 before:rounded-full before:bg-purple-300/20 before:blur-2xl",
-        },
-      };
-      
-      const theme =
-  genericThemes[data.generic_theme as keyof typeof genericThemes] ||
-  genericThemes.luxury;
-const activeAITheme = {
-  ...defaultAITheme,
-  ...(data.ai_theme?.aiTheme || data.ai_theme || {}),
-};
+  // Build the public card URL for the QR code, from request headers
+  const headersList = await headers();
+  const host = headersList.get("host") || "palgonic.com";
+  const protocol = host.startsWith("localhost") ? "http" : "https";
+  const cardUrl = `${protocol}://${host}/u/${slug}`;
 
-const aiButtonStyle =
-  data.theme_mode === "ai"
-    ? {
-background: activeAITheme.buttons?.background,
-color: activeAITheme.buttons?.color,
-boxShadow: activeAITheme.buttons?.shadow,
-      }
-    : undefined;
-    
-        return (
-            <main
- className={`min-h-screen px-5 py-6 ${
-  data.theme_mode === "ai" ? "text-white" : theme.page
-}`}
- style={
-  data.theme_mode === "ai"
-    ? {
-        background:
-          activeAITheme.background?.value ??
-          `linear-gradient(135deg, ${data.primary_color}, ${data.secondary_color})`,
-      }
-    : undefined
-}
->
-            
-              <section className="mx-auto w-full max-w-md">
-                {/* Top Bar */}
-                <div className="mb-5 flex items-center justify-between">
-                  <a
-                    href={data.website || "#"}
-                    className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold backdrop-blur"
-                  >
-                    ✦ {data.full_name ? data.full_name.split(" ")[0] : "Digital Card"}
-                  </a>
-          
-                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold backdrop-blur">
-                    NFC Profile
-                  </span>
-                </div>
-          
-                {/* Main Card */}
-                <section
-  className={`relative animate-[cardEnter_.7s_ease-out] overflow-hidden rounded-[2rem] p-6 ${
-    data.theme_mode === "ai" ? "" : `${theme.card} ${theme.effect}`
-  }`}
-  style={
-    data.theme_mode === "ai"
-      ? {
-          background: activeAITheme.card?.background,
-          border: activeAITheme.card.border,
-          boxShadow: activeAITheme.card.shadow,
-          borderRadius: activeAITheme.card.radius,
-          backdropFilter:  activeAITheme.effects?.glass ? "blur(18px)" : undefined,
-        }
-      : undefined
-  }
->
-                <div className="pointer-events-none absolute inset-0 -translate-x-full animate-[shine_4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                <div className="pointer-events-none absolute right-8 top-10 h-2 w-2 animate-ping rounded-full bg-white/40" />
-                <div className="pointer-events-none absolute bottom-24 left-8 h-1.5 w-1.5 animate-pulse rounded-full bg-white/30" />
-                <div className="pointer-events-none absolute left-1/2 top-20 h-1 w-1 animate-ping rounded-full bg-white/20" />
+  // Initials fallback for the avatar
+  const initials =
+    (card.full_name || "")
+      .split(" ")
+      .filter(Boolean)
+      .map((w: string) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "P";
 
-                  {/* Profile Bubble */}
-                  <div className="relative mx-auto flex h-28 w-28 items-center justify-center">
-  <div className="absolute inset-0 animate-pulse rounded-full bg-white/25 blur-2xl" />
+  const skills: string[] = Array.isArray(card.skills)
+    ? card.skills.filter(Boolean)
+    : [];
 
-  <div className={`relative flex h-full w-full items-center justify-center rounded-full p-1 shadow-2xl ${theme.bubble}`}>
-                    {data.profile_image ? (
-                      <img
-                        src={data.profile_image}
-                        alt={data.full_name || "Profile picture"}
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950 text-4xl font-black text-white">
-                        {initials}
-                      </div>
-    )}
-    </div>
-  </div>
-          
-                  {/* Name */}
-                  <div className="mt-6 text-center">
-                    <h1 
-  
-  className={`mt-1 text-3xl font-light ${
-    data.theme_mode === "ai" ? "" : theme.accent
-  }`}
-  style={
-    data.theme_mode === "ai"
-      ? { color: activeAITheme.text?.titleColor }
-      : undefined
-  }
->
-                      {data.full_name?.split(" ")[0] || "Your"}
-                    </h1>
-                    <p
-  className="text-4xl font-black leading-none"
-  style={
-    data.theme_mode === "ai"
-      ? { color: activeAITheme.text?.nameColor }
-      : undefined
-  }
->
-                      {data.full_name?.split(" ").slice(1).join(" ") || "Name"}
-                    </p>
-          
-                    <p
-  className={`mt-4 text-sm font-bold uppercase tracking-[0.18em] ${
-    data.theme_mode === "ai" ? "" : theme.accent
-  }`}
-  style={
-    data.theme_mode === "ai"
-      ? { color: activeAITheme.text?.titleColor }
-      : undefined
-  }
->
-                      {data.title || "Your title"}
-                    </p>
-          
-                    <p
-  className="mt-5 text-sm leading-relaxed opacity-75"
-  style={
-    data.theme_mode === "ai"
-      ? { color: activeAITheme.text?.bioColor }
-      : undefined
-  }
->
-                      {data.bio || "Your short profile presentation will appear here."}
-                    </p>
-                  </div>
-          
-                  {/* Quick Actions */}
-                  <div className="mt-8">
-                    <h2 className="mb-3 text-left text-sm font-black uppercase tracking-[0.2em] opacity-70">
-                      Quick Actions
-                    </h2>
-          
-                    <div className="grid grid-cols-2 gap-3">
-                      <a
-                        href={`/api/vcard/${slug}`}
-                        className={`col-span-2 rounded-2xl px-4 py-4 text-center font-black shadow-lg transition ${
-  data.theme_mode === "ai"
-    ? "hover:-translate-y-1 active:scale-95"
-    : theme.button
-}`}
-style={aiButtonStyle}
-                      >
-                        ＋ Save Contact
-                        </a>
-{data.email && (
-  <TrackedActionLink
-    cardId={data.id}
-    eventType="email_click"
-    href={`mailto:${data.email}`}
-    className={`rounded-2xl px-5 py-3 font-bold transition ${
-      data.theme_mode === "ai"
-        ? "hover:-translate-y-1 active:scale-95"
-        : theme.button
-    }`}
-    style={aiButtonStyle}
-  >
-    Email
-  </TrackedActionLink>
-)}
-                    
-          
-                      {data.phone && (
-<TrackedActionLink
-  cardId={data.id}
-  eventType="phone_click"
-  href={`tel:${data.phone}`}
-  className={`rounded-2xl px-5 py-3 font-bold transition ${
-    data.theme_mode === "ai"
-      ? "hover:-translate-y-1 active:scale-95"
-      : theme.button
-  }`}
-  style={aiButtonStyle}
->
-  Call
-</TrackedActionLink>
-                      )}
-          
-                      {data.whatsapp && (
-<TrackedActionLink
-  cardId={data.id}
-  eventType="whatsapp_click"
-  href={`https://wa.me/${data.whatsapp}`}
-  className={`rounded-2xl px-5 py-3 font-bold transition ${
-    data.theme_mode === "ai"
-      ? "hover:-translate-y-1 active:scale-95"
-      : theme.button
-  }`}
-  style={aiButtonStyle}
->
-  WhatsApp
-</TrackedActionLink>
-                      )}
-          
-                      {data.linkedin && (
-<TrackedActionLink
-  cardId={data.id}
-  eventType="linkedin_click"
-  href={data.linkedin}
-  className={`rounded-2xl px-5 py-3 font-bold transition ${
-    data.theme_mode === "ai"
-      ? "hover:-translate-y-1 active:scale-95"
-      : theme.button
-  }`}
-  style={aiButtonStyle}
->
-  LinkedIn
-</TrackedActionLink>
-                      )}
-                    </div>
-                  </div>
-          
-                  <div className="my-7 h-px bg-white/10" />
-                  {/* Profile */}
-                  <div className="mt-8 rounded-3xl border border-white/15 bg-white/10 p-5 text-left">
-                    <h2 className="text-lg font-black">Profile</h2>
-                    <p className="mt-3 text-sm leading-relaxed opacity-75">
-                      {data.bio ||
-                        "A professional digital profile designed to help people connect quickly, save your contact and discover your work."}
-                    </p>
-          
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-bold">Digital Card</span>
-                      <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-bold">NFC Profile</span>
-                      <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-bold">Professional</span>
-                      <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-bold">Networking</span>
-                    </div>
-                  </div>
-          
-                  <div className="my-7 h-px bg-white/10" />
+  const services: string[] = Array.isArray(card.company_services)
+    ? card.company_services.filter(Boolean)
+    : [];
 
-                 {data.company_description && (
-  <section className="mt-6 rounded-[1.7rem] border border-white/10 bg-white/10 p-5 text-left backdrop-blur-xl">
-    <div className="flex items-center gap-3">
-      {data.company_logo && (
-        <img
-          src={data.company_logo}
-          alt={`${data.company_name || "Company"} logo`}
-          className="h-12 w-12 rounded-2xl object-cover shadow-lg"
-        />
-      )}
+  // Build LinkedIn URL safely
+  const linkedinHref = card.linkedin
+    ? card.linkedin.startsWith("http")
+      ? card.linkedin
+      : `https://${card.linkedin}`
+    : null;
 
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
-          Company
-        </p>
+  // Build website URL safely
+  const websiteHref = card.website
+    ? card.website.startsWith("http")
+      ? card.website
+      : `https://${card.website}`
+    : null;
 
-        {data.company_name && (
-          <h3 className="text-lg font-black text-white">
-            {data.company_name}
-          </h3>
-        )}
-      </div>
-    </div>
+  const contactRows = [
+    card.email && {
+      label: t.emailLabel,
+      value: card.email,
+      href: `mailto:${card.email}`,
+    },
+    card.phone && {
+      label: t.phoneLabel,
+      value: card.phone,
+      href: `tel:${card.phone}`,
+    },
+    card.whatsapp && {
+      label: t.whatsappLabel,
+      value: card.whatsapp,
+      href: `https://wa.me/${card.whatsapp.replace(/[^0-9]/g, "")}`,
+    },
+    linkedinHref && {
+      label: t.linkedinLabel,
+      value: card.linkedin,
+      href: linkedinHref,
+    },
+    websiteHref && {
+      label: t.websiteLabel,
+      value: card.website,
+      href: websiteHref,
+    },
+  ].filter(Boolean) as Array<{ label: string; value: string; href: string }>;
 
-    <p className="mt-4 text-sm leading-6 text-white/80">
-      {data.company_description}
-    </p>
+  return (
+    <main
+      className="min-h-screen"
+      style={{
+        background: theme.overlay
+          ? `${theme.overlay}, ${theme.background}`
+          : theme.background,
+        color: theme.foreground,
+      }}
+    >
+      <AnalyticsBeacon cardId={card.id} />
 
-    {data.company_services && data.company_services.length > 0 && (
-      <div className="mt-4 flex flex-wrap gap-2">
-        {data.company_services.map((service: string) => (
-          <span
-            key={service}
-            className="rounded-full bg-white/10 px-3 py-2 text-xs font-bold text-white/80"
+      <div className="mx-auto max-w-md px-6 py-8 sm:py-12">
+        {/* Header — language switcher */}
+        <div className="flex justify-end">
+          <LanguageSwitcher current={lang} theme={theme} />
+        </div>
+
+        {/* Hero */}
+        <section className="mt-8 text-center">
+          <div
+            className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full"
+            style={{
+              backgroundColor: theme.surface,
+              border: `1px solid ${theme.border}`,
+            }}
           >
-            {service}
-          </span>
-        ))}
+            {card.profile_image ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={card.profile_image}
+                alt={card.full_name || ""}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span
+                className="font-display text-3xl"
+                style={{ color: theme.muted }}
+              >
+                {initials}
+              </span>
+            )}
+          </div>
+
+          {card.full_name && (
+            <h1 className="mt-6 font-display text-4xl tracking-tight">
+              {card.full_name}
+            </h1>
+          )}
+          {card.title && (
+            <p
+              className="mt-2 text-sm font-medium"
+              style={{ color: theme.muted }}
+            >
+              {card.title}
+            </p>
+          )}
+        </section>
+
+        {/* Save contact — primary CTA right under the hero */}
+        <div className="mt-8">
+          <SaveContactButton
+            cardId={card.id}
+            slug={slug}
+            theme={theme}
+            label={t.saveContact}
+          />
+        </div>
+
+        {/* About */}
+        {card.bio && (
+          <section className="mt-10">
+            <p
+              className="text-xs uppercase tracking-widest"
+              style={{ color: theme.muted }}
+            >
+              {t.about}
+            </p>
+            <p className="mt-3 whitespace-pre-line leading-relaxed">
+              {card.bio}
+            </p>
+          </section>
+        )}
+
+        {/* Skills */}
+        {skills.length > 0 && (
+          <section className="mt-10">
+            <p
+              className="text-xs uppercase tracking-widest"
+              style={{ color: theme.muted }}
+            >
+              {t.skills}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {skills.map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full px-3 py-1 text-xs"
+                  style={{
+                    border: `1px solid ${theme.border}`,
+                    backgroundColor: theme.surface,
+                    color: theme.foreground,
+                  }}
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Company */}
+        {card.company && (
+          <section
+            className="mt-10 rounded-2xl p-5"
+            style={{
+              backgroundColor: theme.surface,
+              border: `1px solid ${theme.border}`,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              {card.company_logo && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={card.company_logo}
+                  alt={card.company}
+                  className="h-12 w-12 rounded-md object-cover"
+                  style={{ border: `1px solid ${theme.border}` }}
+                />
+              )}
+              <div>
+                <p
+                  className="text-xs uppercase tracking-widest"
+                  style={{ color: theme.muted }}
+                >
+                  {t.company}
+                </p>
+                <h2 className="font-display text-lg">{card.company}</h2>
+              </div>
+            </div>
+
+            {card.company_description && (
+              <p className="mt-4 text-sm leading-relaxed">
+                {card.company_description}
+              </p>
+            )}
+
+            {services.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {services.map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-full px-2.5 py-1 text-[11px]"
+                    style={{
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: "transparent",
+                      color: theme.muted,
+                    }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {card.company_website && (
+              <a
+                href={
+                  card.company_website.startsWith("http")
+                    ? card.company_website
+                    : `https://${card.company_website}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex rounded-md px-4 py-2 text-sm font-medium transition hover:opacity-90"
+                style={{
+                  backgroundColor: theme.accent,
+                  color: theme.accentForeground,
+                }}
+              >
+                {t.visitWebsite} ↗
+              </a>
+            )}
+          </section>
+        )}
+
+        {/* Contact */}
+        {contactRows.length > 0 && (
+          <section className="mt-10">
+            <p
+              className="text-xs uppercase tracking-widest"
+              style={{ color: theme.muted }}
+            >
+              {t.contact}
+            </p>
+            <ul
+              className="mt-3 overflow-hidden rounded-2xl"
+              style={{
+                backgroundColor: theme.surface,
+                border: `1px solid ${theme.border}`,
+              }}
+            >
+              {contactRows.map((row, i) => (
+                <li
+                  key={row.label}
+                  style={{
+                    borderBottom:
+                      i === contactRows.length - 1
+                        ? undefined
+                        : `1px solid ${theme.border}`,
+                  }}
+                >
+                  <a
+                    href={row.href}
+                    target={
+                      row.href.startsWith("http") ? "_blank" : undefined
+                    }
+                    rel={
+                      row.href.startsWith("http")
+                        ? "noopener noreferrer"
+                        : undefined
+                    }
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition hover:opacity-80"
+                  >
+                    <span
+                      className="text-[10px] uppercase tracking-wider"
+                      style={{ color: theme.muted }}
+                    >
+                      {row.label}
+                    </span>
+                    <span className="truncate">{row.value}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* QR Code — white container for reliable scanning on any theme */}
+        <section className="mt-12">
+          <p
+            className="mb-4 text-center text-xs uppercase tracking-widest"
+            style={{ color: theme.muted }}
+          >
+            {t.qrTitle}
+          </p>
+
+          <div className="mx-auto flex w-fit flex-col items-center gap-3 rounded-2xl bg-white p-5 shadow-2xl">
+            <QRCodeSVG
+              value={cardUrl}
+              size={140}
+              bgColor="#FFFFFF"
+              fgColor="#0E5C4D"
+              level="M"
+            />
+            <p className="text-xs font-medium text-foret">
+              {t.qrHint}
+            </p>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="mt-12 pb-6 text-center">
+          <Link
+            href="/"
+            className="text-xs uppercase tracking-widest transition hover:opacity-100"
+            style={{ color: theme.muted, opacity: 0.7 }}
+          >
+            {t.poweredBy}
+          </Link>
+        </footer>
       </div>
-    )}
-
-    {data.company_website && (
-      <a
-        href={data.company_website}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`mt-4 inline-flex rounded-2xl px-4 py-3 text-sm font-black transition ${
-          data.theme_mode === "ai"
-            ? "hover:-translate-y-1 active:scale-95"
-            : theme.button
-        }`}
-        style={aiButtonStyle}
-      >
-        {data.company_cta_label || "Visit company website"}
-      </a>
-    )}
-  </section>
-)}
-
-                  {/* Company / Discover */}
-                  {(data.website || data.linkedin) && (
-                    <div className="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 text-left">
-                      <h2 className="text-lg font-black">Discover More</h2>
-          
-                      <div className="mt-4 grid gap-3">
-                        {data.website && (
-                          <a
-  href={data.website}
-  className={`rounded-2xl px-4 py-3 text-center font-black transition ${
-    data.theme_mode === "ai"
-      ? "hover:-translate-y-1 active:scale-95"
-      : theme.button
-  }`}
-  style={aiButtonStyle}
->
-  Visit Website
-</a>
-                        )}
-          
-                        {data.linkedin && (
-                          <a href={data.linkedin} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-center font-bold">
-                            LinkedIn Profile
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-          
-          <div className="my-7 h-px bg-white/10" />
-
-                  {/* QR */}
-                  <div className={`mt-6 rounded-3xl p-5 text-center ${
-  data.theme_mode === "ai" ? "" : theme.bubble
-}`}style={
-  data.theme_mode === "ai"
-    ? {
-        background: activeAITheme.card?.background,
-        border: activeAITheme.card.border,
-      }
-    : undefined
-}>
-                    <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] opacity-60">
-                      Scan my card
-                    </p>
-                    <ProfileQrCode slug={slug} />
-                  </div>
-          
-                  <p className="mt-6 text-center text-xs opacity-60">
-                    Tap. Connect. Remember.
-                    <br />
-                    Premium digital business card powered by NFC.
-                  </p>
-                  </section>
-              </section>
-              <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md">
-  <a
-  href={`/api/vcard/${slug}`}
-  className={`col-span-2 rrounded-full px-4 py-4 text-center font-black shadow-lg transition ${
-    data.theme_mode === "ai"
-      ? "hover:-translate-y-1 active:scale-95"
-      : theme.button
-  }`}
-  style={aiButtonStyle}
->
-  ＋ Save Contact
-</a>
-</div>
-            </main>
-          );
-        }
+    </main>
+  );
+}

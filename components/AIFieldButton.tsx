@@ -18,7 +18,7 @@ export function AIFieldButton({
   async function generateText(event: React.MouseEvent<HTMLButtonElement>) {
     const form = event.currentTarget.closest("form") as HTMLFormElement | null;
     const target = form?.querySelector(
-      `[name="${targetName}"]`
+      `[name="${targetName}"]`,
     ) as HTMLInputElement | HTMLTextAreaElement | null;
 
     if (!form || !target) return;
@@ -32,7 +32,9 @@ export function AIFieldButton({
       bio: formData.get("bio") || context?.bio || "",
       company: formData.get("company") || context?.company || "",
       company_description:
-        formData.get("company_description") || context?.company_description || "",
+        formData.get("company_description") ||
+        context?.company_description ||
+        "",
       company_services:
         formData.get("company_services") || context?.company_services || "",
       skills: formData.get("skills") || context?.skills || "",
@@ -44,13 +46,8 @@ export function AIFieldButton({
     try {
       const response = await fetch("/api/generate-field", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          field,
-          context: liveContext,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field, context: liveContext }),
       });
 
       const data = await response.json();
@@ -58,7 +55,7 @@ export function AIFieldButton({
       target.value = data.text || "";
       target.dispatchEvent(new Event("input", { bubbles: true }));
     } catch {
-      alert("AI generation failed. Please try again.");
+      alert("Génération impossible. Réessayez.");
     } finally {
       setLoading(false);
     }
@@ -69,13 +66,12 @@ export function AIFieldButton({
       type="button"
       onClick={generateText}
       disabled={loading}
-      className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-100 px-6 py-4 font-black text-cyan-800 transition hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-70"
+      className="inline-flex items-center justify-center gap-2 self-start rounded-md border border-pierre-soft bg-creme px-4 py-2 text-sm font-medium text-foret transition hover:border-foret hover:bg-foret/5 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading && (
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-800 border-t-transparent" />
+        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-foret border-t-transparent" />
       )}
-
-      <span>{loading ? "Generating magic..." : children}</span>
+      <span>{loading ? "Génération…" : children}</span>
     </button>
   );
 }

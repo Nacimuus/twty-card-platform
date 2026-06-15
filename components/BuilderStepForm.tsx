@@ -1,16 +1,47 @@
 "use client";
 
 import { useState } from "react";
-
 import Link from "next/link";
 import { getNextStep, getPreviousStep } from "@/lib/builder-steps";
 import { saveCardStep } from "@/app/actions/save-card-step";
 import { publishCard } from "@/app/actions/publish-card";
 import { AIFieldButton } from "@/components/AIFieldButton";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
+import {
+  GENERIC_THEMES,
+  THEME_KEYS,
+  TEXTURE_PATTERNS,
+  type ThemeKey,
+  type ComputedTheme,
+} from "@/lib/themes";
 
+// ─── Shared styles ──────────────────────────────────────────
+const INPUT_CLASS =
+  "w-full rounded-md border border-pierre-soft bg-creme px-4 py-3 text-sm outline-none transition placeholder:text-pierre/50 focus:border-foret";
+const TEXTAREA_CLASS = `${INPUT_CLASS} min-h-32`;
+const LABEL_CLASS = "block text-xs font-medium text-pierre";
 
+const THEME_DESCRIPTIONS: Record<ThemeKey, { fr: string; en: string }> = {
+  elysee: {
+    fr: "Luxe classique — émeraude profond, or, esprit Champs-Élysées.",
+    en: "Classic luxury — deep emerald, gold, Champs-Élysées vibe.",
+  },
+  midnight: {
+    fr: "Premium sombre — noir profond, argent, ombres élégantes.",
+    en: "Premium dark — deep black, silver, elegant shadows.",
+  },
+  provence: {
+    fr: "Inspiré Van Gogh — bleu profond, or, coups de pinceau.",
+    en: "Van Gogh inspired — deep blue, gold, brush strokes.",
+  },
+  tokyo: {
+    fr: "Pop culture — coucher de soleil sakura, pétales.",
+    en: "Pop culture — sakura sunset, petals.",
+  },
+};
+
+// ─── Component ──────────────────────────────────────────────
 export function BuilderStepForm({
   card,
   step,
@@ -18,6 +49,8 @@ export function BuilderStepForm({
   setSelectedGenericTheme,
   selectedAITheme,
   setSelectedAITheme,
+  selectedLanguage,
+  setSelectedLanguage,
   profileImageUrl,
   setProfileImageUrl,
   companyLogoUrl,
@@ -29,108 +62,706 @@ export function BuilderStepForm({
   setSelectedGenericTheme: any;
   selectedAITheme: any;
   setSelectedAITheme: any;
+  selectedLanguage: "fr" | "en";
+  setSelectedLanguage: (lang: "fr" | "en") => void;
   profileImageUrl: string;
   setProfileImageUrl: any;
   companyLogoUrl: string;
   setCompanyLogoUrl: any;
 }) {
+  const supabase = createClient();
   const next = getNextStep(step);
   const previous = getPreviousStep(step);
   const searchParams = useSearchParams();
-const isPublished = searchParams.get("published") === "true";
-const publishedSlug = searchParams.get("slug");
+  const isPublished = searchParams.get("published") === "true";
+  const publishedSlug = searchParams.get("slug");
+
+  // ─── AI theme state ───────────────────────────────────────
   const [aiThemePrompt, setAiThemePrompt] = useState(card?.theme_prompt || "");
-const [aiThemes, setAiThemes] = useState<any[]>(
-  card?.generated_ai_themes || []
-);
-const [isGeneratingTheme, setIsGeneratingTheme] = useState(false);
+  const [aiThemes, setAiThemes] = useState<ComputedTheme[]>(
+    Array.isArray(card?.ai_theme_variants) ? card.ai_theme_variants : [],
+  );
+  const [isGeneratingTheme, setIsGeneratingTheme] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiAlreadyUsed, setAiAlreadyUsed] = useState<boolean>(
+    !!card?.ai_theme_generated_at,
+  );
 
+  async function generateAIThemes() {
+    setIsGeneratingTheme(true);
+    setAiError(null);
 
-async function generateAIThemes() {
-  setIsGeneratingTheme(true);
+    try {
+      const res = await fetch("/api/generate-theme", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardId: card.id,
+          themePrompt: aiThemePrompt,
+          fullName: card?.full_name,
+          title: card?.title,
+        }),
+      });
 
-  const res = await fetch("/api/generate-theme", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-body: JSON.stringify({
-  themePrompt: aiThemePrompt,
-  fullName: card?.full_name,
-  title: card?.title,
-  logoImage: card?.company_logo || card?.profile_image || "",
-}),
-  });
+      const data = await res.json();
 
-  const data = await res.json();
+      if (!res.ok) {
+        setAiError(data.message || "Échec de la génération.");
+        if (data.error === "ALREADY_USED") setAiAlreadyUsed(true);
+        return;
+      }
 
-  setAiThemes(data.themes || []);
-  setIsGeneratingTheme(false);
-}
-
-
-const [uploadingImage, setUploadingImage] = useState(false);
-
-async function uploadImage(file: File, folder: "profiles" | "logos") {
-  setUploadingImage(true);
-
-  const fileExt = file.name.split(".").pop();
-  const fileName = `${folder}/${card.id}-${Date.now()}.${fileExt}`;
-
-  const { error } = await supabase.storage
-    .from("profile-images")
-    .upload(fileName, file, {
-      upsert: true,
-    });
-
-  if (error) {
-    console.error("UPLOAD ERROR:", error);
-    setUploadingImage(false);
-    return "";
+      setAiThemes(data.themes || []);
+      setAiAlreadyUsed(true);
+    } catch {
+      setAiError("Erreur réseau. Réessayez.");
+    } finally {
+      setIsGeneratingTheme(false);
+    }
   }
 
-  const { data } = supabase.storage
-    .from("profile-images")
-    .getPublicUrl(fileName);
+  // ─── Image upload ─────────────────────────────────────────
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  setUploadingImage(false);
-  return data.publicUrl;
+  async function uploadImage(file: File, folder: "profiles" | "logos") {
+    setUploadingImage(true);
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${folder}/${card.id}-${Date.now()}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from("profile-images")
+      .upload(fileName, file, { upsert: true });
+
+    if (error) {
+      console.error("UPLOAD ERROR:", error);
+      setUploadingImage(false);
+      return "";
+    }
+
+    const { data } = supabase.storage
+      .from("profile-images")
+      .getPublicUrl(fileName);
+
+    setUploadingImage(false);
+    return data.publicUrl;
+  }
+
+  // ─── Render ───────────────────────────────────────────────
+  return (
+    <div>
+      {/* ═══ IDENTITY ═══════════════════════════════════════ */}
+      {step === "identity" && (
+        <form action={saveCardStep} className="space-y-6">
+          <input type="hidden" name="cardId" value={card.id} />
+          <input type="hidden" name="nextStep" value={next || "company"} />
+
+          <header>
+            <h1 className="font-display text-3xl">Votre identité</h1>
+            <p className="mt-1 text-sm text-pierre">
+              Ce que les gens verront en premier.
+            </p>
+          </header>
+
+          <div className="space-y-5">
+            <label className="block">
+              <span className={LABEL_CLASS}>Nom complet</span>
+              <input
+                name="full_name"
+                className={`${INPUT_CLASS} mt-2`}
+                placeholder="Ex : Léa Marchand"
+                defaultValue={card?.full_name || ""}
+              />
+            </label>
+
+            <label className="block">
+              <span className={LABEL_CLASS}>Titre / poste</span>
+              <input
+                name="title"
+                className={`${INPUT_CLASS} mt-2`}
+                placeholder="Ex : Photographe indépendante"
+                defaultValue={card?.title || ""}
+              />
+            </label>
+
+            <ImageUpload
+              label="Photo de profil"
+              folder="profiles"
+              fieldName="profile_image"
+              currentUrl={profileImageUrl}
+              setCurrentUrl={setProfileImageUrl}
+              uploadFn={uploadImage}
+              uploading={uploadingImage}
+            />
+
+            <label className="block">
+              <span className={LABEL_CLASS}>Bio</span>
+              <textarea
+                name="bio"
+                className={`${TEXTAREA_CLASS} mt-2`}
+                placeholder="Quelques phrases sur ce que vous faites."
+                defaultValue={card?.bio || ""}
+              />
+            </label>
+
+            <AIFieldButton
+              field="short professional bio"
+              targetName="bio"
+              context={card}
+            >
+              Améliorer avec l'IA
+            </AIFieldButton>
+          </div>
+
+          <StepNav previous={previous} cardId={card.id} forwardLabel="Suivant" />
+        </form>
+      )}
+
+      {/* ═══ SKILLS ═════════════════════════════════════════ */}
+      {step === "skills" && (
+        <form action={saveCardStep} className="space-y-6">
+          <input type="hidden" name="cardId" value={card.id} />
+          <input type="hidden" name="nextStep" value={next || "contact"} />
+
+          <header>
+            <h1 className="font-display text-3xl">Vos compétences</h1>
+            <p className="mt-1 text-sm text-pierre">
+              Ce que vous voulez qu'on retienne de vous.
+            </p>
+          </header>
+
+          <div className="space-y-5">
+            <label className="block">
+              <span className={LABEL_CLASS}>
+                Compétences (séparées par des virgules)
+              </span>
+              <textarea
+                name="skills"
+                className={`${TEXTAREA_CLASS} mt-2`}
+                placeholder="Ex : Gestion de projet, paiements, EMV, SoftPOS, leadership"
+                defaultValue={
+                  Array.isArray(card?.skills)
+                    ? card.skills.join(", ")
+                    : card?.skills || ""
+                }
+              />
+            </label>
+
+            <AIFieldButton
+              field="professional skills list"
+              targetName="skills"
+              context={card}
+            >
+              Générer avec l'IA
+            </AIFieldButton>
+          </div>
+
+          <StepNav previous={previous} cardId={card.id} forwardLabel="Suivant" />
+        </form>
+      )}
+
+      {/* ═══ COMPANY ════════════════════════════════════════ */}
+      {step === "company" && (
+        <form action={saveCardStep} className="space-y-6">
+          <input type="hidden" name="cardId" value={card.id} />
+          <input type="hidden" name="nextStep" value={next || "contact"} />
+
+          <header>
+            <h1 className="font-display text-3xl">Votre entreprise</h1>
+            <p className="mt-1 text-sm text-pierre">
+              Les informations de votre activité.
+            </p>
+          </header>
+
+          <div className="space-y-5">
+            <label className="block">
+              <span className={LABEL_CLASS}>Nom de l'entreprise</span>
+              <input
+                name="company"
+                className={`${INPUT_CLASS} mt-2`}
+                placeholder="Ex : Studio Marchand"
+                defaultValue={card?.company || ""}
+              />
+            </label>
+
+            <ImageUpload
+              label="Logo de l'entreprise"
+              folder="logos"
+              fieldName="company_logo"
+              currentUrl={companyLogoUrl}
+              setCurrentUrl={setCompanyLogoUrl}
+              uploadFn={uploadImage}
+              uploading={uploadingImage}
+            />
+
+            <label className="block">
+              <span className={LABEL_CLASS}>Description</span>
+              <textarea
+                name="company_description"
+                className={`${TEXTAREA_CLASS} mt-2`}
+                placeholder="Que fait votre entreprise ?"
+                defaultValue={card?.company_description || ""}
+              />
+            </label>
+
+            <AIFieldButton
+              field="company description"
+              targetName="company_description"
+              context={card}
+            >
+              Générer la description
+            </AIFieldButton>
+
+            <label className="block">
+              <span className={LABEL_CLASS}>
+                Services (séparés par des virgules)
+              </span>
+              <textarea
+                name="company_services"
+                className={`${TEXTAREA_CLASS} mt-2`}
+                placeholder="Ex : Photo portrait, photo corporate, événementiel"
+                defaultValue={
+                  Array.isArray(card?.company_services)
+                    ? card.company_services.join(", ")
+                    : card?.company_services || ""
+                }
+              />
+            </label>
+
+            <AIFieldButton
+              field="company services list"
+              targetName="company_services"
+              context={card}
+            >
+              Générer les services
+            </AIFieldButton>
+
+            <label className="block">
+              <span className={LABEL_CLASS}>Site web de l'entreprise</span>
+              <input
+                name="company_website"
+                className={`${INPUT_CLASS} mt-2`}
+                placeholder="https://..."
+                defaultValue={card?.company_website || ""}
+              />
+            </label>
+          </div>
+
+          <StepNav previous={previous} cardId={card.id} forwardLabel="Suivant" />
+        </form>
+      )}
+
+      {/* ═══ CONTACT ════════════════════════════════════════ */}
+      {step === "contact" && (
+        <form action={saveCardStep} className="space-y-6">
+          <input type="hidden" name="cardId" value={card.id} />
+          <input type="hidden" name="nextStep" value={next || "design"} />
+
+          <header>
+            <h1 className="font-display text-3xl">Vos coordonnées</h1>
+            <p className="mt-1 text-sm text-pierre">
+              Tous les moyens de vous joindre.
+            </p>
+          </header>
+
+          <div className="space-y-5">
+            {[
+              { name: "email", label: "Email", placeholder: "vous@exemple.com", type: "email" },
+              { name: "phone", label: "Téléphone", placeholder: "+33 6 12 34 56 78", type: "tel" },
+              { name: "whatsapp", label: "WhatsApp", placeholder: "+33 6 12 34 56 78", type: "tel" },
+              { name: "linkedin", label: "LinkedIn", placeholder: "linkedin.com/in/...", type: "url" },
+              { name: "website", label: "Site web", placeholder: "https://...", type: "url" },
+            ].map((field) => (
+              <label key={field.name} className="block">
+                <span className={LABEL_CLASS}>{field.label}</span>
+                <input
+                  type={field.type}
+                  name={field.name}
+                  className={`${INPUT_CLASS} mt-2`}
+                  placeholder={field.placeholder}
+                  defaultValue={(card as any)?.[field.name] || ""}
+                />
+              </label>
+            ))}
+          </div>
+
+          <StepNav previous={previous} cardId={card.id} forwardLabel="Suivant" />
+        </form>
+      )}
+
+      {/* ═══ DESIGN ═════════════════════════════════════════ */}
+      {step === "design" && (
+        <form action={saveCardStep} className="space-y-8">
+          <input type="hidden" name="cardId" value={card.id} />
+          <input type="hidden" name="nextStep" value={next || "review"} />
+          <input type="hidden" name="language" value={selectedLanguage} />
+          <input type="hidden" name="generic_theme" value={selectedGenericTheme} />
+          <input type="hidden" name="theme_prompt" value={aiThemePrompt} />
+          <input
+            type="hidden"
+            name="ai_theme"
+            value={selectedAITheme ? JSON.stringify(selectedAITheme) : ""}
+          />
+
+          <header>
+            <h1 className="font-display text-3xl">Choisissez le style</h1>
+            <p className="mt-1 text-sm text-pierre">
+              Quatre thèmes éditoriaux. Ou laissez l'IA en générer un — une seule fois par carte.
+            </p>
+          </header>
+
+          {/* Language picker */}
+          <section>
+            <h2 className="font-display text-lg">Langue par défaut</h2>
+            <p className="mt-1 text-xs text-pierre">
+              Quelle langue voient les visiteurs par défaut.
+            </p>
+
+            <div className="mt-3 inline-flex gap-1 rounded-md border border-pierre-soft bg-creme p-1">
+              {(["fr", "en"] as const).map((lang) => {
+                const active = selectedLanguage === lang;
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => setSelectedLanguage(lang)}
+                    className={`rounded px-4 py-1.5 text-sm font-medium transition ${
+                      active
+                        ? "bg-foret text-creme"
+                        : "text-pierre hover:text-encre"
+                    }`}
+                  >
+                    {lang === "fr" ? "Français" : "English"}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Themes */}
+          <section>
+            <h2 className="font-display text-lg">Thèmes éditoriaux</h2>
+            <p className="mt-1 text-xs text-pierre">
+              La carte reste reconnaissable comme une carte Palgonic.
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {THEME_KEYS.map((key) => {
+                const theme = GENERIC_THEMES[key];
+                const active = selectedGenericTheme === key && !selectedAITheme;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGenericTheme(key);
+                      setSelectedAITheme(null);
+                    }}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      active
+                        ? "border-foret ring-2 ring-foret/20"
+                        : "border-pierre-soft hover:border-foret"
+                    }`}
+                  >
+                    <ThemeSwatch theme={theme} />
+                    <p className="mt-3 font-display text-base">{theme.name}</p>
+                    <p className="mt-0.5 text-xs text-pierre">
+                      {THEME_DESCRIPTIONS[key][selectedLanguage]}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* AI theme */}
+          <section>
+            <h2 className="font-display text-lg">Thème personnalisé (IA)</h2>
+            <p className="mt-1 text-xs text-pierre">
+              {aiAlreadyUsed
+                ? "La génération IA a déjà été utilisée pour cette carte."
+                : "Décrivez votre vibe. L'IA propose 2 variantes. Une seule génération par carte."}
+            </p>
+
+            {!aiAlreadyUsed && (
+              <div className="mt-4 space-y-3">
+                <textarea
+                  className={TEXTAREA_CLASS}
+                  placeholder="Ex : bleu profond et terracotta, élégant, swiss design moderne…"
+                  value={aiThemePrompt}
+                  onChange={(e) => setAiThemePrompt(e.target.value)}
+                  disabled={isGeneratingTheme}
+                />
+
+                {aiError && (
+                  <p className="rounded-md border border-corail-deep/20 bg-corail/10 p-3 text-sm text-corail-deep">
+                    {aiError}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={generateAIThemes}
+                  disabled={isGeneratingTheme || aiThemePrompt.trim().length < 5}
+                  className="inline-flex rounded-md bg-foret px-5 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isGeneratingTheme ? "Génération…" : "Générer 2 variantes"}
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* AI variants */}
+          {aiThemes.length > 0 && (
+            <section>
+              <h2 className="font-display text-lg">Variantes générées</h2>
+              <p className="mt-1 text-xs text-pierre">
+                Choisissez la variante qui correspond à votre identité.
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {aiThemes.map((theme, index) => {
+                  const active =
+                    selectedAITheme && selectedAITheme.name === theme.name;
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setSelectedAITheme(theme)}
+                      className={`rounded-xl border p-4 text-left transition ${
+                        active
+                          ? "border-foret ring-2 ring-foret/20"
+                          : "border-pierre-soft hover:border-foret"
+                      }`}
+                    >
+                      <ThemeSwatch theme={theme} />
+
+                      <p className="mt-3 text-[10px] uppercase tracking-widest text-pierre">
+                        Variante {index + 1}
+                      </p>
+                      <p className="font-display text-base">{theme.name}</p>
+
+                      <div className="mt-3 flex gap-1.5">
+                        {[theme.background, theme.accent, theme.foreground, theme.muted].map((c, i) => (
+                          <span
+                            key={i}
+                            className="h-4 w-4 rounded-full border"
+                            style={{ background: c, borderColor: theme.border }}
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <StepNav previous={previous} cardId={card.id} forwardLabel="Suivant" />
+        </form>
+      )}
+
+      {/* ═══ REVIEW ═════════════════════════════════════════ */}
+      {step === "review" && (
+        <form action={publishCard} className="space-y-6">
+          <input type="hidden" name="cardId" value={card.id} />
+
+          <header>
+            <h1 className="font-display text-3xl">Prêt à publier</h1>
+            <p className="mt-1 text-sm text-pierre">
+              Vérifiez l'aperçu à côté. Une fois publiée, votre carte est partageable.
+            </p>
+          </header>
+
+          <div className="rounded-xl border border-pierre-soft bg-creme p-6">
+            <p className="font-display text-xl">
+              {isPublished
+                ? "Votre carte est en ligne."
+                : "Votre carte Palgonic est presque prête."}
+            </p>
+
+            <p className="mt-2 text-sm text-pierre">
+              {isPublished
+                ? "Vous pouvez l'ouvrir, la partager, ou revenir au tableau de bord."
+                : "Publiez votre carte et commencez à la partager avec votre réseau."}
+            </p>
+
+            {isPublished && publishedSlug && (
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a
+                  href={`/u/${publishedSlug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md bg-foret px-4 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep"
+                >
+                  Ouvrir la carte ↗
+                </a>
+                <Link
+                  href="/dashboard"
+                  className="rounded-md border border-pierre-soft px-4 py-2.5 text-sm font-medium transition hover:border-foret hover:text-foret"
+                >
+                  Tableau de bord
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-pierre-soft pt-6">
+            <Link
+              href={`/dashboard/cards/${card.id}/builder/${previous}`}
+              className="text-sm text-pierre transition hover:text-foret"
+            >
+              ← Retour
+            </Link>
+            {!isPublished && (
+              <button
+                type="submit"
+                className="rounded-md bg-foret px-6 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep"
+              >
+                Publier la carte
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+    </div>
+  );
 }
 
+// ════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════
 
-return (
-  <div className="relative z-50">
-    {step === "identity" && (
-  <form action={saveCardStep} className="relative z-50">
-    <input type="hidden" name="cardId" value={card.id} />
-    <input type="hidden" name="nextStep" value={next || "company"} />
+function StepNav({
+  previous,
+  cardId,
+  forwardLabel,
+}: {
+  previous: string | null;
+  cardId: string;
+  forwardLabel: string;
+}) {
+  return (
+    <div className="flex items-center justify-between border-t border-pierre-soft pt-6">
+      {previous ? (
+        <Link
+          href={`/dashboard/cards/${cardId}/builder/${previous}`}
+          className="text-sm text-pierre transition hover:text-foret"
+        >
+          ← Retour
+        </Link>
+      ) : (
+        <span />
+      )}
+      <button
+        type="submit"
+        className="rounded-md bg-foret px-6 py-2.5 text-sm font-medium text-creme transition hover:bg-foret-deep"
+      >
+        {forwardLabel}
+      </button>
+    </div>
+  );
+}
 
+function ThemeSwatch({
+  theme,
+}: {
+  theme: ComputedTheme & { texturePattern?: string };
+}) {
+  // Resolve overlay: explicit `overlay` (premade themes) OR texturePattern (AI themes)
+  const overlay =
+    theme.overlay ||
+    (theme.texturePattern && TEXTURE_PATTERNS[theme.texturePattern]) ||
+    undefined;
+
+  return (
+    <div
+      className="h-24 w-full overflow-hidden rounded-lg"
+      style={{
+        background: overlay
+          ? `${overlay}, ${theme.background}`
+          : theme.background,
+        border: `1px solid ${theme.border}`,
+      }}
+    >
+      <div className="flex h-full items-end justify-between p-3">
+        <div
+          className="rounded-full px-2.5 py-1 text-[10px] font-medium"
+          style={{
+            backgroundColor: theme.accent,
+            color: theme.accentForeground,
+          }}
+        >
+          CTA
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div
+            className="h-1.5 w-16 rounded-full"
+            style={{ backgroundColor: theme.foreground, opacity: 0.85 }}
+          />
+          <div
+            className="h-1.5 w-10 rounded-full"
+            style={{ backgroundColor: theme.muted }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImageUpload({
+  label,
+  folder,
+  fieldName,
+  currentUrl,
+  setCurrentUrl,
+  uploadFn,
+  uploading,
+}: {
+  label: string;
+  folder: "profiles" | "logos";
+  fieldName: string;
+  currentUrl: string;
+  setCurrentUrl: (url: string) => void;
+  uploadFn: (file: File, folder: "profiles" | "logos") => Promise<string>;
+  uploading: boolean;
+}) {
+  return (
     <div>
-      <h1 className="mb-2 text-4xl font-black">Build your identity ✨</h1>
-      <p className="mb-8 text-white/60">
-        Start with what people will see first.
-      </p>
+      <span className={LABEL_CLASS}>{label}</span>
+      <input type="hidden" name={fieldName} value={currentUrl} />
 
-
-
-      <div className="grid gap-5">
-        <input
-          name="full_name"
-          className="rounded-2xl border border-white/10 bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Full name"
-          defaultValue={card?.full_name || ""}
-        />
-
-        <input
-          name="title"
-          className="rounded-2xl border border-white/10 bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Title"
-          defaultValue={card?.title || ""}
-        />
-
-        <input type="hidden" name="profile_image" value={profileImageUrl} />
-
-        <label className="flex cursor-pointer items-center gap-4 rounded-3xl border border-dashed border-cyan-300/40 bg-white/10 p-5 transition hover:bg-white/15">
+      {currentUrl ? (
+        <div className="mt-2 flex items-center gap-4 rounded-md border border-pierre-soft bg-creme p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={currentUrl}
+            alt=""
+            className={`h-14 w-14 object-cover ${
+              folder === "profiles" ? "rounded-full" : "rounded-md"
+            }`}
+          />
+          <div className="flex-1 text-sm">
+            <p className="font-medium">Image chargée</p>
+            <p className="text-xs text-pierre">Cliquez pour remplacer</p>
+          </div>
+          <label className="cursor-pointer text-sm text-foret underline underline-offset-4">
+            Modifier
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const url = await uploadFn(file, folder);
+                if (url) setCurrentUrl(url);
+              }}
+            />
+          </label>
+        </div>
+      ) : (
+        <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-pierre-soft bg-creme/50 px-4 py-8 transition hover:border-foret">
           <input
             type="file"
             accept="image/*"
@@ -138,514 +769,15 @@ return (
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-
-              const url = await uploadImage(file, "profiles");
-              if (url) setProfileImageUrl(url);
+              const url = await uploadFn(file, folder);
+              if (url) setCurrentUrl(url);
             }}
           />
-
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-300 text-3xl font-black text-slate-950">
-            +
-          </div>
-
-          <div>
-            <p className="font-black text-white">Add your profile picture</p>
-            <p className="mt-1 text-sm text-white/50">
-              {uploadingImage ? "Uploading..." : "Click to upload an image"}
-            </p>
-          </div>
+          <span className="text-sm text-pierre">
+            {uploading ? "Téléversement…" : "+ Ajouter une image"}
+          </span>
         </label>
-
-        {profileImageUrl && (
-          <div className="flex items-center gap-3 rounded-2xl bg-emerald-400/15 p-3 text-sm font-bold text-emerald-100">
-            <img
-              src={profileImageUrl}
-              alt="Profile preview"
-              className="h-10 w-10 rounded-full object-cover"
-            />
-            Picture loaded successfully ✅
-          </div>
-        )}
-
-        <textarea
-          name="bio"
-          className="min-h-32 rounded-2xl border border-white/10 bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Short bio"
-          defaultValue={card?.bio || ""}
-        />
-
-        <AIFieldButton
-          field="short professional bio"
-          targetName="bio"
-          context={card}
-        >
-          Improve bio with AI ✨
-        </AIFieldButton>
-      </div>
-    </div>
-
-    <div className="mt-10 flex items-center justify-between">
-      <div />
-
-      <button
-        type="submit"
-        className="rounded-2xl bg-white px-6 py-4 font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
-      >
-        Next
-      </button>
-    </div>
-  </form>
-)}
-
-{step === "skills" && (
-  <form action={saveCardStep}>
-    <input type="hidden" name="cardId" value={card.id} />
-    <input type="hidden" name="nextStep" value={next || "contact"} />
-
-    <div>
-      <h1 className="mb-2 text-4xl font-black">Skills & expertise 🧠</h1>
-      <p className="mb-8 text-white/60">
-        Add the skills you want people to remember.
-      </p>
-
-      <div className="grid gap-5">
-        <textarea
-          name="skills"
-          className="min-h-40 rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Example: Project management, payment systems, EMV, SoftPOS, leadership..."
-          defaultValue={
-            Array.isArray(card?.skills)
-              ? card.skills.join(", ")
-              : card?.skills || ""
-          }
-        />
-
- <AIFieldButton
-  field="professional skills list"
-  targetName="skills"
-  context={card}
->
-  Generate skills with AI ✨
-</AIFieldButton>
-      </div>
-    </div>
-
-    <div className="mt-10 flex items-center justify-between">
-      <Link
-        href={`/dashboard/cards/${card.id}/builder/${previous}`}
-        className="rounded-2xl bg-white/10 px-6 py-4 font-black text-white transition hover:bg-white/20"
-      >
-        Back
-      </Link>
-
-      <button
-        type="submit"
-        className="rounded-2xl bg-white px-6 py-4 font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
-      >
-        Next
-      </button>
-    </div>
-  </form>
-)}
-
-     {step === "company" && (
-<form action={saveCardStep} className="relative z-50">
-    <input type="hidden" name="cardId" value={card.id} />
-    <input type="hidden" name="nextStep" value={next || "contact"} />
-
-    <div>
-      <h1 className="mb-2 text-4xl font-black">Company info 🏢</h1>
-      <p className="mb-8 text-white/60">
-        Add your company details.
-      </p>
-
-      <div className="grid gap-5">
-        <input
-          name="company"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Company name"
-          defaultValue={card?.company || ""}
-        />
-<input type="hidden" name="company_logo" value={companyLogoUrl} />
-
-<label className="flex cursor-pointer items-center gap-4 rounded-3xl border border-dashed border-yellow-300/40 bg-white/10 p-5 transition hover:bg-white/15">
-  <input
-    type="file"
-    accept="image/*"
-    className="hidden"
-    onChange={async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const url = await uploadImage(file, "logos");
-      if (url) setCompanyLogoUrl(url);
-    }}
-  />
-
-  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-300 text-3xl font-black text-slate-950">
-    +
-  </div>
-
-  <div>
-    <p className="font-black text-white">Add your company logo</p>
-    <p className="mt-1 text-sm text-white/50">
-      {uploadingImage ? "Uploading..." : "Click to upload a logo"}
-    </p>
-  </div>
-</label>
-
-{companyLogoUrl && (
-  <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-400/15 p-3 text-sm font-bold text-emerald-100">
-    <img
-      src={companyLogoUrl}
-      alt="Company logo preview"
-      className="h-10 w-10 rounded-xl object-cover"
-    />
-    Logo loaded successfully ✅
-  </div>
-)}
-
-
-
-        <textarea
-          name="company_description"
-          className="min-h-32 rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Company description"
-          defaultValue={card?.company_description || ""}
-        />
-<AIFieldButton
-  field="company description"
-  targetName="company_description"
-  context={card}
->
-  Generate company description ✨
-</AIFieldButton>
-
-<textarea
-  name="company_services"
-  defaultValue={
-    Array.isArray(card?.company_services)
-      ? card.company_services.join(", ")
-      : card?.company_services || ""
-  }
-  className="min-h-32 rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-  placeholder="Company services"
-/>
-<AIFieldButton
-  field="company services list"
-  targetName="company_services"
-  context={card}
->
-  Generate company services ✨
-</AIFieldButton>
-        <input
-          name="company_website"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Company website"
-          defaultValue={card?.company_website || ""}
-        />
-      </div>
-    </div>
-
-    <div className="mt-10 flex items-center justify-between">
-      <Link
-        href={`/dashboard/cards/${card.id}/builder/${previous}`}
-        className="rounded-2xl bg-white/10 px-6 py-4 font-black text-white"
-      >
-        Back
-      </Link>
-
-      <button
-        type="submit"
-        className="rounded-2xl bg-white px-6 py-4 font-black text-slate-950"
-      >
-        Next
-      </button>
-    </div>
-  </form>
-)}
-
-     {step === "contact" && (
-  <form action={saveCardStep}>
-    <input type="hidden" name="cardId" value={card.id} />
-    <input type="hidden" name="nextStep" value={next || "design"} />
-
-    <div>
-      <h1 className="mb-2 text-4xl font-black">Contact channels 📱</h1>
-      <p className="mb-8 text-white/60">
-        Add all the ways people can reach you.
-      </p>
-
-      <div className="grid gap-5">
-        <input
-          name="email"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Email"
-          defaultValue={card?.email || ""}
-        />
-
-        <input
-          name="phone"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Phone"
-          defaultValue={card?.phone || ""}
-        />
-
-        <input
-          name="whatsapp"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="WhatsApp"
-          defaultValue={card?.whatsapp || ""}
-        />
-
-        <input
-          name="linkedin"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="LinkedIn"
-          defaultValue={card?.linkedin || ""}
-        />
-
-        <input
-          name="website"
-          className="rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Website"
-          defaultValue={card?.website || ""}
-        />
-      </div>
-    </div>
-
-    <div className="mt-10 flex items-center justify-between">
-      <Link
-        href={`/dashboard/cards/${card.id}/builder/${previous}`}
-        className="rounded-2xl bg-white/10 px-6 py-4 font-black text-white"
-      >
-        Back
-      </Link>
-
-      <button
-        type="submit"
-        className="rounded-2xl bg-white px-6 py-4 font-black text-slate-950"
-      >
-        Next
-      </button>
-    </div>
-  </form>
-)}
-     {step === "design" && (
-  <form action={saveCardStep}>
-    <input type="hidden" name="cardId" value={card.id} />
-    <input type="hidden" name="nextStep" value={next || "review"} />
-
-    <input type="hidden" name="generic_theme" value={selectedGenericTheme} />
-    <input type="hidden" name="theme_prompt" value={aiThemePrompt} />
-    <input
-      type="hidden"
-      name="ai_theme"
-      value={selectedAITheme ? JSON.stringify(selectedAITheme) : ""}
-    />
-
-    <div>
-      <h1 className="mb-2 text-4xl font-black">Choose the vibe 🎨</h1>
-      <p className="mb-8 text-white/60">
-        Pick a ready-made style or generate a custom AI theme.
-      </p>
-
-      <div className="rounded-[2rem] border border-white/10 bg-white/10 p-6">
-        <h2 className="text-xl font-black">Generic themes</h2>
-        <p className="mt-1 text-sm text-white/50">
-          Fast, clean presets for your card.
-        </p>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {["luxury", "corporate", "minimal", "tech", "startup", "classic"].map(
-            (theme) => (
-              <button
-                key={theme}
-                type="button"
-                onClick={() => {
-  setSelectedGenericTheme(theme);
-  setSelectedAITheme(null);
-}}
-                className={`rounded-3xl border p-5 text-left font-black capitalize transition hover:-translate-y-1 ${
-                  selectedGenericTheme === theme
-                    ? "border-yellow-300 bg-yellow-300 text-slate-950"
-                    : "border-white/10 bg-white/10 text-white"
-                }`}
-              >
-                {theme}
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/10 p-6">
-        <h2 className="text-xl font-black">AI Theme Generator ✨</h2>
-        <p className="mt-1 text-sm text-white/50">
-          Describe the feeling you want. AI will create 3 visual directions.
-        </p>
-
-        <textarea
-          className="mt-5 min-h-32 w-full rounded-2xl bg-white p-4 font-bold text-slate-950 outline-none"
-          placeholder="Example: premium dark blue and gold, elegant, Swiss luxury, modern fintech..."
-          value={aiThemePrompt}
-          onChange={(e) => setAiThemePrompt(e.target.value)}
-        />
-
-        <button
-          type="button"
-          onClick={generateAIThemes}
-          disabled={isGeneratingTheme}
-          className="mt-4 rounded-2xl bg-gradient-to-r from-cyan-300 to-yellow-300 px-6 py-4 font-black text-slate-950 shadow-xl transition hover:-translate-y-1 disabled:opacity-60"
-        >
-          {isGeneratingTheme ? "Generating themes..." : "Generate 3 AI themes ✨"}
-        </button>
-      </div>
-
-      {aiThemes.length > 0 && (
-        <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/10 p-6">
-          <h2 className="text-xl font-black">AI generated versions</h2>
-          <p className="mt-1 text-sm text-white/50">
-            Choose the version that best matches your identity.
-          </p>
-
-          <div className="mt-5 grid gap-5 md:grid-cols-3">
-            {aiThemes.map((theme, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => {
-  setSelectedAITheme(theme);
-}}
-                className={`overflow-hidden rounded-[2rem] border p-4 text-left transition hover:-translate-y-1 ${
-                 selectedAITheme?.aiTheme?.name === theme?.aiTheme?.name
-                    ? "border-yellow-300 bg-yellow-300/20"
-                    : "border-white/10 bg-white/10"
-                }`}
-              >
-                <div
-                  className="h-32 rounded-3xl"
-                  style={{
-background:
-  theme?.aiTheme?.background?.value ||
-  `linear-gradient(135deg, ${theme?.primaryColor}, ${theme?.secondaryColor})`,
-                  }}
-                />
-
-                <p className="mt-4 text-xs font-black uppercase tracking-[0.2em] text-white/40">
-                  Version {index + 1}
-                </p>
-
-                <h3 className="mt-2 text-lg font-black text-white">
-                  {theme.aiTheme?.name || `AI Theme ${index + 1}`}
-                </h3>
-
-                <p className="mt-2 text-sm text-white/60">
-                  {theme.aiThemeNotes}
-                </p>
-
-                <div className="mt-4 flex gap-2">
-                  <span
-                    className="h-6 w-6 rounded-full border border-white/20"
-                    style={{ background: theme.primaryColor }}
-                  />
-                  <span
-                    className="h-6 w-6 rounded-full border border-white/20"
-                    style={{ background: theme.secondaryColor }}
-                  />
-                </div>
-
-                <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-slate-950">
-                  Apply this version
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
       )}
-    </div>
-
-    <div className="mt-10 flex items-center justify-between">
-      <Link
-        href={`/dashboard/cards/${card.id}/builder/${previous}`}
-        className="rounded-2xl bg-white/10 px-6 py-4 font-black text-white"
-      >
-        Back
-      </Link>
-
-      <button
-        type="submit"
-        className="rounded-2xl bg-white px-6 py-4 font-black text-slate-950"
-      >
-        Next
-      </button>
-    </div>
-  </form>
-)}
-
-      {step === "review" && (
-  <form action={publishCard}>
-    <input type="hidden" name="cardId" value={card.id} />
-
-    <div>
-      <h1 className="mb-2 text-4xl font-black">Ready to publish 🚀</h1>
-      <p className="mb-8 text-white/60">
-        Review your card and make it live.
-      </p>
-
-<div className="rounded-[2rem] border border-white/10 bg-white/10 p-6">
-  <p className="text-2xl font-black">
-    {isPublished ? "Your card is now live 🎉" : "Your Twty Card is almost ready 🎉"}
-  </p>
-
-  <p className="mt-2 text-white/60">
-    {isPublished
-      ? "You can now open your public card or go back to your dashboard."
-      : "Publish your card and start sharing it with your network."}
-  </p>
-
-  {isPublished && publishedSlug && (
-    <div className="mt-6 flex flex-wrap gap-3">
-      <a
-        href={`/u/${publishedSlug}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
-      >
-        Open live card ↗
-      </a>
-
-      <Link
-        href="/dashboard"
-        className="rounded-2xl border border-white/10 bg-white/10 px-6 py-4 text-sm font-black text-white transition hover:bg-white/20"
-      >
-        Back to dashboard
-      </Link>
-    </div>
-  )}
-</div>
-    </div>
-
-    <div className="mt-10 flex items-center justify-between">
-      <Link
-        href={`/dashboard/cards/${card.id}/builder/${previous}`}
-        className="rounded-2xl bg-white/10 px-6 py-4 font-black text-white transition hover:bg-white/20"
-      >
-        Back
-      </Link>
-
-  {!isPublished && (
-      <button
-        type="submit"
-        className="rounded-2xl bg-gradient-to-r from-cyan-300 to-yellow-300 px-6 py-4 font-black text-slate-950 shadow-xl transition hover:-translate-y-1"
-      >
-        Publish card 🎉
-      </button>
-       )}
-    </div>
-  </form>
-)}
-
     </div>
   );
 }
