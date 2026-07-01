@@ -63,51 +63,36 @@ const COPY = {
     },
     pricing: {
       eyebrow: "Tarifs",
-      heading: "Gratuit pour commencer.",
+      heading: "Le digital est gratuit. Toujours.",
       subhead:
-        "Pas de carte bancaire requise. Payez uniquement quand vous voulez plus.",
+        "Créez et partagez votre carte digitale sans rien payer. Passez au physique quand vous voulez.",
       footnote:
-        "Créez votre compte gratuit pour être notifié du lancement du Pro et des cartes NFC.",
+        "Créez votre compte gratuit et commandez votre carte NFC quand vous êtes prêt.",
       free: {
-        label: "Gratuit",
-        price: "0€",
+        label: "Carte digitale",
+        price: "Gratuit",
         period: "À vie · pour toujours",
         features: [
           "Carte digitale illimitée",
-          "4 thèmes éditoriaux",
-          "QR code et lien partage",
-          "Statistiques de base",
-          "Mention Palgonic discrète",
+          "4 thèmes artistiques + IA",
+          "QR code et lien de partage",
+          "Statistiques de vues et scans",
+          "Aucune carte bancaire requise",
         ],
         cta: "Créer ma carte",
       },
-      pro: {
-        label: "Pro",
-        badge: "Bientôt",
-        price: "2,49€",
-        per: " / mois",
-        period: "19€ / an · économisez 36%",
-        features: [
-          "Tout du Gratuit",
-          "Mention Palgonic supprimée",
-          "Statistiques détaillées",
-          "Génération de thèmes par IA",
-          "Support prioritaire",
-        ],
-        cta: "Bientôt disponible",
-      },
       nfc: {
-        label: "Carte NFC",
-        badge: "Bientôt",
-        price: "dès 12€",
-        period: "Achat unique",
+        label: "Cartes NFC",
+        price: "dès 2,99 €",
+        period: "Achat unique · personnalisable",
         features: [
           "Carte physique NFC + QR",
-          "3 finitions : PVC, métal, premium",
-          "Reliée à votre profil Palgonic",
-          "Livraison Europe",
+          "Reliée à votre carte digitale",
+          "Personnalisez : nom, logo, date…",
+          "Gravure incluse, impression en option",
+          "Livraison en Europe",
         ],
-        cta: "Bientôt disponible",
+        cta: "Personnaliser ma carte",
       },
     },
     faq: {
@@ -116,7 +101,11 @@ const COPY = {
       items: [
         {
           q: "C'est vraiment gratuit ?",
-          a: "Oui. La carte digitale est gratuite à vie, sans carte bancaire requise. Vous payez uniquement si vous voulez le tier Pro ou une carte NFC physique.",
+          a: "Oui. La carte digitale est gratuite à vie, sans carte bancaire requise. Vous payez uniquement si vous commandez une carte NFC physique.",
+        },
+        {
+          q: "Combien coûte une carte NFC ?",
+          a: "À partir de 2,99 € pour la carte de base. Le prix évolue selon les options que vous ajoutez (logo, date, impression). La livraison est en supplément.",
         },
         {
           q: "Vendez-vous mes données ?",
@@ -129,10 +118,6 @@ const COPY = {
         {
           q: "Et si je veux supprimer mon compte ?",
           a: "Vous pouvez supprimer votre compte à tout moment depuis votre tableau de bord. Toutes vos données sont effacées définitivement, sans question posée.",
-        },
-        {
-          q: "Quand sortent le Pro et les cartes NFC ?",
-          a: "Très bientôt. Créez votre compte gratuit pour être informé en priorité du lancement.",
         },
       ],
     },
@@ -194,50 +179,36 @@ const COPY = {
     },
     pricing: {
       eyebrow: "Pricing",
-      heading: "Free to start.",
-      subhead: "No credit card required. Pay only when you want more.",
+      heading: "Digital is free. Always.",
+      subhead:
+        "Create and share your digital card at no cost. Go physical whenever you want.",
       footnote:
-        "Create your free account to be notified when Pro and NFC cards launch.",
+        "Create your free account and order your NFC card when you're ready.",
       free: {
-        label: "Free",
-        price: "€0",
+        label: "Digital card",
+        price: "Free",
         period: "Forever · for life",
         features: [
           "Unlimited digital card",
-          "4 editorial themes",
+          "4 artistic themes + AI",
           "QR code and share link",
-          "Basic analytics",
-          "Subtle Palgonic mention",
+          "Views and scans analytics",
+          "No credit card required",
         ],
         cta: "Create my card",
       },
-      pro: {
-        label: "Pro",
-        badge: "Soon",
-        price: "€2.49",
-        per: " / month",
-        period: "€19 / year · save 36%",
-        features: [
-          "Everything in Free",
-          "Palgonic mention removed",
-          "Detailed analytics",
-          "AI theme generation",
-          "Priority support",
-        ],
-        cta: "Coming soon",
-      },
       nfc: {
-        label: "NFC card",
-        badge: "Soon",
-        price: "from €12",
-        period: "One-time purchase",
+        label: "NFC cards",
+        price: "from €2.99",
+        period: "One-time purchase · customizable",
         features: [
           "Physical NFC + QR card",
-          "3 finishes: PVC, metal, premium",
-          "Linked to your Palgonic profile",
+          "Linked to your digital card",
+          "Customize: name, logo, date…",
+          "Engraving included, printing optional",
           "Europe shipping",
         ],
-        cta: "Coming soon",
+        cta: "Customize my card",
       },
     },
     faq: {
@@ -246,7 +217,11 @@ const COPY = {
       items: [
         {
           q: "Is it really free?",
-          a: "Yes. The digital card is free forever, with no credit card required. You only pay if you want the Pro tier or a physical NFC card.",
+          a: "Yes. The digital card is free forever, with no credit card required. You only pay if you order a physical NFC card.",
+        },
+        {
+          q: "How much is an NFC card?",
+          a: "From €2.99 for the base card. The price grows with the options you add (logo, date, printing). Shipping is extra.",
         },
         {
           q: "Do you sell my data?",
@@ -259,10 +234,6 @@ const COPY = {
         {
           q: "What if I want to delete my account?",
           a: "You can delete your account at any time from your dashboard. All your data is permanently erased, no questions asked.",
-        },
-        {
-          q: "When are Pro and NFC cards launching?",
-          a: "Very soon. Create your free account to be the first to know.",
         },
       ],
     },
@@ -382,7 +353,7 @@ export default async function Home({
 }
 
 // ============================================================
-// Nav — uses integrated PalgonicLogo
+// Nav
 // ============================================================
 function Nav({
   signedIn,
@@ -468,7 +439,7 @@ function Nav({
 }
 
 // ============================================================
-// Hero — no standalone mark (the proper logo lives in the nav above)
+// Hero
 // ============================================================
 function Hero({ signedIn, t }: { signedIn: boolean; t: T }) {
   return (
@@ -688,12 +659,12 @@ function HowItWorks({ t }: { t: T }) {
 }
 
 // ============================================================
-// Pricing
+// Pricing — two blocks: free digital + NFC cards
 // ============================================================
 function Pricing({ t }: { t: T }) {
   return (
     <section id="tarifs" className="py-24 sm:py-32">
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-5xl px-6">
         <p className="text-xs uppercase tracking-widest text-pierre">
           {t.pricing.eyebrow}
         </p>
@@ -702,18 +673,21 @@ function Pricing({ t }: { t: T }) {
         </h2>
         <p className="mt-3 max-w-xl text-encre/75">{t.pricing.subhead}</p>
 
-        <div className="mt-16 grid gap-6 md:grid-cols-3">
+        <div className="mt-16 grid gap-6 md:grid-cols-2">
+          {/* Free digital card */}
           <div className="rounded-2xl border border-pierre-soft bg-white p-8">
             <p className="text-sm uppercase tracking-wider text-pierre">
               {t.pricing.free.label}
             </p>
             <p className="mt-4 font-display text-5xl">{t.pricing.free.price}</p>
             <p className="mt-1 text-sm text-pierre">{t.pricing.free.period}</p>
+
             <ul className="mt-8 space-y-3 text-sm">
               {t.pricing.free.features.map((f) => (
                 <li key={f}>· {f}</li>
               ))}
             </ul>
+
             <Link
               href="/signup"
               className="mt-8 block rounded-md bg-foret py-3 text-center font-medium text-creme transition hover:bg-foret-deep"
@@ -722,52 +696,29 @@ function Pricing({ t }: { t: T }) {
             </Link>
           </div>
 
+          {/* NFC cards */}
           <div
             className="rounded-2xl border-2 bg-white p-8"
             style={{ borderColor: "#0E5C4D" }}
           >
-            <div className="flex items-center justify-between">
-              <p className="text-sm uppercase tracking-wider text-foret">
-                {t.pricing.pro.label}
-              </p>
-              <span className="rounded-full bg-foret px-2.5 py-0.5 text-xs font-medium text-creme">
-                {t.pricing.pro.badge}
-              </span>
-            </div>
-            <p className="mt-4 font-display text-5xl">
-              {t.pricing.pro.price}
-              <span className="text-base text-pierre">{t.pricing.pro.per}</span>
+            <p className="text-sm uppercase tracking-wider text-foret">
+              {t.pricing.nfc.label}
             </p>
-            <p className="mt-1 text-sm text-pierre">{t.pricing.pro.period}</p>
-            <ul className="mt-8 space-y-3 text-sm">
-              {t.pricing.pro.features.map((f) => (
-                <li key={f}>· {f}</li>
-              ))}
-            </ul>
-            <div className="mt-8 rounded-md border border-pierre-soft py-3 text-center text-sm text-pierre">
-              {t.pricing.pro.cta}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-pierre-soft bg-white p-8">
-            <div className="flex items-center justify-between">
-              <p className="text-sm uppercase tracking-wider text-pierre">
-                {t.pricing.nfc.label}
-              </p>
-              <span className="rounded-full border border-pierre-soft px-2.5 py-0.5 text-xs text-pierre">
-                {t.pricing.nfc.badge}
-              </span>
-            </div>
             <p className="mt-4 font-display text-5xl">{t.pricing.nfc.price}</p>
             <p className="mt-1 text-sm text-pierre">{t.pricing.nfc.period}</p>
+
             <ul className="mt-8 space-y-3 text-sm">
               {t.pricing.nfc.features.map((f) => (
                 <li key={f}>· {f}</li>
               ))}
             </ul>
-            <div className="mt-8 rounded-md border border-pierre-soft py-3 text-center text-sm text-pierre">
+
+            <Link
+              href="/signup"
+              className="mt-8 block rounded-md bg-foret py-3 text-center font-medium text-creme transition hover:bg-foret-deep"
+            >
               {t.pricing.nfc.cta}
-            </div>
+            </Link>
           </div>
         </div>
 
@@ -815,7 +766,7 @@ function Faq({ t }: { t: T }) {
 }
 
 // ============================================================
-// Footer — uses integrated PalgonicLogo
+// Footer
 // ============================================================
 function Footer({ t }: { t: T }) {
   return (
