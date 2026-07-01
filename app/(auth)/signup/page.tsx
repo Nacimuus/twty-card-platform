@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signUpWithPassword } from "../actions";
 import { AuthShell } from "@/components/AuthShell";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export const metadata = { title: "Créer un compte" };
 
@@ -18,7 +19,17 @@ export default async function SignupPage({
         Votre identité pro, prête en deux minutes.
       </p>
 
-      <form action={signUpWithPassword} className="mt-8 flex flex-col gap-4">
+      <div className="mt-8">
+        <GoogleSignInButton label="S'inscrire avec Google" next="/dashboard" />
+      </div>
+
+      <div className="my-6 flex items-center gap-4">
+        <span className="h-px flex-1 bg-pierre-soft" />
+        <span className="text-xs uppercase tracking-widest text-pierre">ou</span>
+        <span className="h-px flex-1 bg-pierre-soft" />
+      </div>
+
+      <form action={signUpWithPassword} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium">Email</span>
           <input

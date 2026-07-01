@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { loginWithPassword } from "../actions";
 import { AuthShell } from "@/components/AuthShell";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export const metadata = { title: "Se connecter" };
 
@@ -16,7 +17,20 @@ export default async function LoginPage({
       <h1 className="font-display text-4xl">Se connecter</h1>
       <p className="mt-2 text-pierre">Bon retour parmi nous.</p>
 
-      <form action={loginWithPassword} className="mt-8 flex flex-col gap-4">
+      <div className="mt-8">
+        <GoogleSignInButton
+          label="Continuer avec Google"
+          next={next || "/dashboard"}
+        />
+      </div>
+
+      <div className="my-6 flex items-center gap-4">
+        <span className="h-px flex-1 bg-pierre-soft" />
+        <span className="text-xs uppercase tracking-widest text-pierre">ou</span>
+        <span className="h-px flex-1 bg-pierre-soft" />
+      </div>
+
+      <form action={loginWithPassword} className="flex flex-col gap-4">
         {next && <input type="hidden" name="next" value={next} />}
 
         <label className="flex flex-col gap-1.5">
