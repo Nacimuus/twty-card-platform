@@ -50,12 +50,26 @@ export function AIFieldButton({
         body: JSON.stringify({ field, context: liveContext }),
       });
 
+      if (!response.ok) {
+        // Preserve user's existing text — do NOT wipe it
+        alert(
+          "Génération impossible pour le moment. Réessayez dans un instant.",
+        );
+        return;
+      }
+
       const data = await response.json();
 
-      target.value = data.text || "";
-      target.dispatchEvent(new Event("input", { bubbles: true }));
+      // Only overwrite if we actually got usable text back
+      if (data.text && typeof data.text === "string" && data.text.trim()) {
+        target.value = data.text;
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+      } else {
+        alert("La génération n'a rien renvoyé. Réessayez.");
+      }
     } catch {
-      alert("Génération impossible. Réessayez.");
+      // Network error — preserve user's text
+      alert("Erreur réseau. Vérifiez votre connexion et réessayez.");
     } finally {
       setLoading(false);
     }
