@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateCardButton } from "@/components/CreateCardButton";
 import { DeleteCardButton } from "@/components/DeleteCardButton";
 import { FloatingAIAssistant } from "@/components/FloatingAIAssistant";
+import { PalgonicLogo } from "@/components/PalgonicLogo";
 
 export default async function Dashboard({
   searchParams,
@@ -67,8 +68,8 @@ export default async function Dashboard({
       {/* ─── Top nav ────────────────────────────────────── */}
       <nav className="border-b border-pierre-soft">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="font-display text-xl tracking-tight">
-            palgonic
+          <Link href="/" className="transition hover:opacity-80">
+            <PalgonicLogo className="text-xl" />
           </Link>
 
           <div className="flex items-center gap-4 text-sm">
