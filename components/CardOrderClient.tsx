@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   computeCardPrice,
   defaultCardConfig,
@@ -11,7 +12,11 @@ import {
   type Finish,
   type SideElements,
 } from "@/lib/card-pricing";
-import { PhysicalCardPreview, type CardData } from "@/components/PhysicalCardPreview";
+import {
+  PhysicalCardPreview,
+  type CardData,
+} from "@/components/PhysicalCardPreview";
+import { useCart } from "@/components/useCart";
 
 type Product = {
   id: string;
@@ -23,7 +28,7 @@ type Product = {
 const ELEMENT_KEYS: { key: keyof SideElements; label: string; hint: string }[] =
   [
     { key: "contact", label: "Coordonnées", hint: "Email, téléphone, site web" },
-    { key: "logo", label: "Logo", hint: "Votre logo ou photo" },
+    { key: "logo", label: "Logo", hint: "Votre logo d'entreprise" },
     { key: "qr", label: "QR code", hint: "Vers votre carte digitale" },
   ];
 
@@ -38,6 +43,8 @@ export function CardOrderClient({
 }) {
   const [config, setConfig] = useState<CardConfig>(defaultCardConfig());
   const breakdown = computeCardPrice(config);
+  const { add } = useCart();
+  const router = useRouter();
 
   // ─── Update helpers ───────────────────────────────
   function setMaterial(material: Material) {
@@ -47,16 +54,10 @@ export function CardOrderClient({
     setConfig((c) => ({ ...c, finish }));
   }
   function toggleFront(key: keyof SideElements) {
-    setConfig((c) => ({
-      ...c,
-      front: { ...c.front, [key]: !c.front[key] },
-    }));
+    setConfig((c) => ({ ...c, front: { ...c.front, [key]: !c.front[key] } }));
   }
   function toggleBackEnabled() {
-    setConfig((c) => ({
-      ...c,
-      back: { ...c.back, enabled: !c.back.enabled },
-    }));
+    setConfig((c) => ({ ...c, back: { ...c.back, enabled: !c.back.enabled } }));
   }
   function toggleBack(key: keyof SideElements) {
     setConfig((c) => ({
@@ -69,11 +70,17 @@ export function CardOrderClient({
   }
 
   function addToCart() {
-    // Cart logic is wired in Phase 10.4. For now, log the config + price.
-    console.log("ORDER CONFIG:", { sourceCardId, config, total: breakdown.total });
-    alert(
-      `Configuration prête : ${formatEuros(breakdown.total)}\n\n(Le panier arrive à l'étape suivante.)`,
-    );
+    add({
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now()),
+      sourceCardId,
+      cardName: data.full_name || "Carte",
+      config,
+      price: breakdown.total,
+    });
+    router.push("/cart");
   }
 
   return (
@@ -232,9 +239,7 @@ export function CardOrderClient({
                 ))}
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-pierre-soft pt-4">
-                <span className="text-sm text-pierre">
-                  Livraison incluse
-                </span>
+                <span className="text-sm text-pierre">Livraison incluse</span>
                 <span className="font-display text-2xl">
                   {formatEuros(breakdown.total)}
                 </span>
@@ -279,14 +284,16 @@ function ToggleRow({
       type="button"
       onClick={onChange}
       className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition ${
-        checked ? "border-foret bg-foret/5" : "border-pierre-soft hover:border-pierre"
+        checked
+          ? "border-foret bg-foret/5"
+          : "border-pierre-soft hover:border-pierre"
       }`}
     >
       <span>
         <span className="block text-sm font-medium">{label}</span>
         <span className="block text-xs text-pierre">{hint}</span>
       </span>
-      <ToggleSwitch checked={checked} onChange={onChange} asSpan />
+      <ToggleSwitch checked={checked} asSpan />
     </button>
   );
 }
