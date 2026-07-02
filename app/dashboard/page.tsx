@@ -5,6 +5,7 @@ import { CreateCardButton } from "@/components/CreateCardButton";
 import { DeleteCardButton } from "@/components/DeleteCardButton";
 import { FloatingAIAssistant } from "@/components/FloatingAIAssistant";
 import { PalgonicLogo } from "@/components/PalgonicLogo";
+import { CartButton } from "@/components/CartButton";
 
 export default async function Dashboard({
   searchParams,
@@ -74,6 +75,7 @@ export default async function Dashboard({
 
           <div className="flex items-center gap-4 text-sm">
             <span className="hidden text-pierre sm:inline">{user.email}</span>
+            <CartButton />
             <form action="/auth/signout" method="post">
               <button
                 type="submit"
@@ -99,14 +101,24 @@ export default async function Dashboard({
             <p className="mt-1 text-sm text-pierre">
               Partagez le lien avec votre réseau.
             </p>
-            <a
-              href={`/u/${slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex rounded-md bg-foret px-4 py-2 text-sm font-medium text-creme transition hover:bg-foret-deep"
-            >
-              Ouvrir la carte ↗
-            </a>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a
+                href={`/u/${slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex rounded-md bg-foret px-4 py-2 text-sm font-medium text-creme transition hover:bg-foret-deep"
+              >
+                Ouvrir la carte ↗
+              </a>
+              {cards?.find((c) => c.slug === slug)?.id && (
+                <Link
+                  href={`/order/${cards.find((c) => c.slug === slug)!.id}`}
+                  className="inline-flex rounded-md border border-foret px-4 py-2 text-sm font-medium text-foret transition hover:bg-foret/5"
+                >
+                  Commander ma carte NFC →
+                </Link>
+              )}
+            </div>
           </div>
         )}
 
@@ -291,6 +303,12 @@ function CardItem({ card }: { card: any }) {
             Statistiques
           </Link>
         </div>
+        <Link
+          href={`/order/${card.id}`}
+          className="rounded-md bg-corail px-3 py-2 text-center text-xs font-medium text-white transition hover:bg-corail-deep"
+        >
+          Commander ma carte NFC →
+        </Link>
       </div>
 
       <div className="mt-4 border-t border-pierre-soft pt-3 text-right">
