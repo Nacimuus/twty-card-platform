@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PalgonicLogo } from "@/components/PalgonicLogo";
 import { formatEuros } from "@/lib/card-pricing";
+import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 
 export const metadata = { title: "Commande confirmée" };
 
@@ -32,6 +33,7 @@ export default async function OrderSuccessPage({
 
   return (
     <main className="min-h-screen bg-creme-paper text-encre">
+      <ClearCartOnMount />
       <nav className="mx-auto flex max-w-3xl items-center px-6 py-6">
         <Link href="/dashboard" className="transition hover:opacity-80">
           <PalgonicLogo className="text-2xl" />
