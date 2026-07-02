@@ -5,16 +5,10 @@ import { PalgonicLogo } from "@/components/PalgonicLogo";
 import { useCart } from "@/components/useCart";
 import { describeConfig } from "@/lib/cart";
 import { formatEuros } from "@/lib/card-pricing";
+import { CheckoutButton } from "@/components/CheckoutButton";
 
 export default function CartPage() {
   const { items, total, remove, hydrated } = useCart();
-
-  function checkout() {
-    // Stripe checkout is wired in Phase 10.5.
-    alert(
-      `Total : ${formatEuros(total)}\n\n(Le paiement arrive à la prochaine étape.)`,
-    );
-  }
 
   return (
     <main className="min-h-screen bg-creme-paper text-encre">
@@ -35,7 +29,6 @@ export default function CartPage() {
           Votre panier
         </h1>
 
-        {/* Not hydrated yet — avoid flashing empty state */}
         {!hydrated ? (
           <p className="mt-8 text-pierre">Chargement…</p>
         ) : items.length === 0 ? (
@@ -108,13 +101,11 @@ export default function CartPage() {
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={checkout}
-                  className="mt-6 w-full rounded-md bg-foret py-3.5 font-medium text-creme transition hover:bg-foret-deep"
-                >
-                  Passer à la caisse
-                </button>
+                <CheckoutButton />
+
+                <p className="mt-3 text-center text-xs text-pierre">
+                  Paiement sécurisé par Stripe.
+                </p>
               </div>
             </div>
           </div>
